@@ -1,0 +1,88 @@
+import CDP from "chrome-remote-interface";
+const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
+export const chromeWindowsToolDefinition = {
+    name: "chrome_windows",
+    description: "Manage Chrome browser windows. List all windows with their tabs, or focus a specific window. Each window groups multiple tabs.",
+    inputSchema: {
+        type: "object",
+        properties: {
+            action: {
+                type: "string",
+                enum: ["list"],
+                description: "list: show all windows and their tabs",
+            },
+        },
+        required: ["action"],
+    },
+};
+export const chromeFocusToolDefinition = {
+    name: "chrome_focus",
+    description: "Bring a specific Chrome tab into focus (activate it in the browser UI).",
+    inputSchema: {
+        type: "object",
+        properties: {
+            tabId: {
+                type: "string",
+                description: "Tab ID to bring into focus (from browser_tabs list)",
+            },
+        },
+        required: ["tabId"],
+    },
+};
+export const chromeExtensionsToolDefinition = {
+    name: "chrome_extensions",
+    description: "List installed Chrome extensions.",
+    inputSchema: {
+        type: "object",
+        properties: {},
+    },
+};
+export async function handleChromeWindows(args, connection) {
+    const action = args.action;
+    if (action === "list") {
+        const targets = await CDP.List({ port: DEBUG_PORT });
+        const pages = targets.filter((t) => t.type === "page");
+        const windowGroups = new Map();
+        for (const page of pages) {
+            const windowId = page.url.startsWith("chrome-extension://") ? "extensions" : "browser";
+            if (!windowGroups.has(windowId))
+                windowGroups.set(windowId, []);
+            windowGroups.get(windowId).push(page);
+        }
+        const allTabs = await connection.listTabs();
+        const output = allTabs
+            .map((t, i) => `[${i}] tabId=${t.id}\n    ${t.title}\n    ${t.url}`)
+            .join("\n\n");
+        return {
+            content: [{
+                    type: "text",
+                    text: `Chrome tabs (${allTabs.length} total):\n\n${output}\n\nNote: Use browser_tabs to manage individual tabs.`,
+                }],
+        };
+    }
+    return { content: [{ type: "text", text: `Unknown action: ${action}` }], isError: true };
+}
+export async function handleChromeFocus(args, connection) {
+    const tabId = args.tabId;
+    const client = await connection.getClientForTab(tabId);
+    try {
+        await client.Target.activateTarget({ targetId: tabId });
+    }
+    catch {
+        await client.Runtime.evaluate({ expression: "window.focus()", returnByValue: true });
+    }
+    return { content: [{ type: "text", text: `Focused tab: ${tabId}` }] };
+}
+export async function handleChromeExtensions(_args, _connection) {
+    const targets = await CDP.List({ port: DEBUG_PORT });
+    const extensions = targets.filter((t) => t.type === "background_page" ||
+        t.url?.startsWith("chrome-extension://") ||
+        t.type === "service_worker");
+    if (extensions.length === 0) {
+        return { content: [{ type: "text", text: "No extensions detected (or none with debug access)." }] };
+    }
+    const output = extensions
+        .map((e) => `  [${e.type}] ${e.title || e.url}\n    ${e.url}`)
+        .join("\n\n");
+    return { content: [{ type: "text", text: `Detected extensions (${extensions.length}):\n\n${output}` }] };
+}

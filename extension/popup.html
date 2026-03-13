@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude MCP Dashboard</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <canvas id="logo-canvas" width="28" height="28"></canvas>
+      <span class="header-title">MCP Dashboard</span>
+    </div>
+    <div id="session-badge" class="session-badge"></div>
+  </header>
+
+  <section id="active-section">
+    <div class="section-label">ACTIVE NOW</div>
+    <div id="active-tabs-list"></div>
+  </section>
+
+  <nav>
+    <button id="log-tab" class="nav-tab active">Log</button>
+    <button id="screenshots-tab" class="nav-tab">Screenshots</button>
+  </nav>
+
+  <div id="filter-bar">
+    <select id="session-select">
+      <option value="all">All sessions</option>
+    </select>
+    <button id="clear-btn">Clear</button>
+  </div>
+
+  <div id="log-view">
+    <div id="event-list"></div>
+  </div>
+
+  <div id="screenshots-view" hidden>
+    <div id="screenshot-grid"></div>
+  </div>
+
+  <div id="modal" hidden>
+    <div class="modal-overlay"></div>
+    <img id="modal-img" src="" alt="Screenshot" />
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

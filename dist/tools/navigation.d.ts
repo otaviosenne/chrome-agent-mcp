@@ -1,0 +1,11 @@
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { ChromeConnection } from "../chrome-connection.js";
+import { ToolResult } from "../types.js";
+export declare const navigateToolDefinition: Tool;
+export declare const navigateBackToolDefinition: Tool;
+export declare const navigateForwardToolDefinition: Tool;
+export declare const reloadToolDefinition: Tool;
+export declare function handleNavigate(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleNavigateBack(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleNavigateForward(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleReload(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;

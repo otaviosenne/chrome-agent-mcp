@@ -1,0 +1,209 @@
+import CDP from "chrome-remote-interface";
+import { TabGroupManager } from "./tab-group-manager.js";
+const MAX_LOG_ENTRIES = 500;
+export class ChromeConnection {
+    debugPort;
+    clients = new Map();
+    activeTabId = null;
+    networkLogs = new Map();
+    consoleLogs = new Map();
+    networkEnabled = new Set();
+    consoleEnabled = new Set();
+    mousePositions = new Map();
+    tabGroup;
+    constructor(debugPort = 9222) {
+        this.debugPort = debugPort;
+        this.tabGroup = new TabGroupManager(debugPort);
+    }
+    async listTabs() {
+        const targets = await CDP.List({ port: this.debugPort });
+        const allPages = targets
+            .filter((t) => t.type === "page")
+            .map((t) => ({
+            id: t.id,
+            title: t.title,
+            url: t.url,
+            type: t.type,
+            webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+        }));
+        if (!this.tabGroup.hasOwnedTabs())
+            return allPages;
+        return allPages.filter((t) => this.tabGroup.isOwned(t.id));
+    }
+    async getClient(tabId) {
+        const resolvedId = tabId ?? this.activeTabId;
+        if (!resolvedId) {
+            const ownedIds = Array.from(this.tabGroup.getOwnedTabIds());
+            if (ownedIds.length > 0) {
+                this.activeTabId = ownedIds[0];
+                return this.getClientForTab(this.activeTabId);
+            }
+            const newTab = await this.newTab();
+            return this.getClientForTab(newTab.id);
+        }
+        return this.getClientForTab(resolvedId);
+    }
+    async getClientForTab(tabId) {
+        if (this.clients.has(tabId)) {
+            const existing = this.clients.get(tabId);
+            try {
+                await existing.Runtime.evaluate({ expression: "1" });
+                return existing;
+            }
+            catch {
+                this.clients.delete(tabId);
+            }
+        }
+        const client = await CDP({ target: tabId, port: this.debugPort });
+        await Promise.all([
+            client.Page.enable(),
+            client.DOM.enable(),
+            client.Runtime.enable(),
+            client.Accessibility.enable(),
+        ]);
+        client.on("disconnect", () => {
+            this.clients.delete(tabId);
+            this.networkEnabled.delete(tabId);
+            this.consoleEnabled.delete(tabId);
+            if (this.activeTabId === tabId)
+                this.activeTabId = null;
+        });
+        this.clients.set(tabId, client);
+        return client;
+    }
+    setActiveTab(tabId) {
+        this.activeTabId = tabId;
+    }
+    getActiveTabId() {
+        return this.activeTabId;
+    }
+    async newTab(url) {
+        const target = await CDP.New({
+            port: this.debugPort,
+            url: url || "about:blank",
+        });
+        this.activeTabId = target.id;
+        const tab = {
+            id: target.id,
+            title: target.title || "",
+            url: target.url || url || "about:blank",
+            type: target.type,
+            webSocketDebuggerUrl: target.webSocketDebuggerUrl || "",
+        };
+        await this.tabGroup.addTab(tab.id);
+        return tab;
+    }
+    async closeTab(tabId) {
+        const client = this.clients.get(tabId);
+        if (client) {
+            try {
+                await client.close();
+            }
+            catch { }
+            this.clients.delete(tabId);
+        }
+        await CDP.Close({ id: tabId, port: this.debugPort });
+        this.tabGroup.removeTab(tabId);
+        if (this.activeTabId === tabId)
+            this.activeTabId = null;
+    }
+    async enableNetworkMonitoring(tabId) {
+        if (this.networkEnabled.has(tabId))
+            return;
+        const client = await this.getClientForTab(tabId);
+        await client.Network.enable();
+        if (!this.networkLogs.has(tabId))
+            this.networkLogs.set(tabId, []);
+        const pendingRequests = new Map();
+        client.Network.requestWillBeSent((params) => {
+            pendingRequests.set(params.requestId, {
+                startTime: params.timestamp,
+                method: params.request.method,
+                url: params.request.url,
+                resourceType: params.type || "Other",
+                requestHeaders: params.request.headers,
+            });
+        });
+        client.Network.responseReceived((params) => {
+            const pending = pendingRequests.get(params.requestId);
+            if (!pending)
+                return;
+            const logs = this.networkLogs.get(tabId);
+            logs.push({
+                requestId: params.requestId,
+                method: pending.method,
+                url: pending.url,
+                resourceType: pending.resourceType,
+                status: params.response.status,
+                statusText: params.response.statusText,
+                requestHeaders: pending.requestHeaders,
+                responseHeaders: params.response.headers,
+                startTime: pending.startTime,
+                duration: params.timestamp - pending.startTime,
+            });
+            if (logs.length > MAX_LOG_ENTRIES)
+                logs.shift();
+        });
+        this.networkEnabled.add(tabId);
+    }
+    async enableConsoleMonitoring(tabId) {
+        if (this.consoleEnabled.has(tabId))
+            return;
+        const client = await this.getClientForTab(tabId);
+        await client.Log.enable();
+        if (!this.consoleLogs.has(tabId))
+            this.consoleLogs.set(tabId, []);
+        client.Runtime.consoleAPICalled((params) => {
+            const logs = this.consoleLogs.get(tabId);
+            const text = params.args
+                ?.map((a) => a.value ?? a.description ?? String(a))
+                .join(" ") ?? "";
+            logs.push({ level: params.type, text, timestamp: params.timestamp });
+            if (logs.length > MAX_LOG_ENTRIES)
+                logs.shift();
+        });
+        client.Log.entryAdded((params) => {
+            const logs = this.consoleLogs.get(tabId);
+            logs.push({
+                level: params.entry.level,
+                text: params.entry.text,
+                url: params.entry.url,
+                line: params.entry.lineNumber,
+                timestamp: Date.now(),
+            });
+            if (logs.length > MAX_LOG_ENTRIES)
+                logs.shift();
+        });
+        this.consoleEnabled.add(tabId);
+    }
+    getNetworkLog(tabId) {
+        return this.networkLogs.get(tabId) ?? [];
+    }
+    getConsoleLog(tabId) {
+        return this.consoleLogs.get(tabId) ?? [];
+    }
+    clearNetworkLog(tabId) {
+        this.networkLogs.set(tabId, []);
+    }
+    clearConsoleLog(tabId) {
+        this.consoleLogs.set(tabId, []);
+    }
+    getMousePosition(tabId) {
+        return this.mousePositions.get(tabId) ?? { x: 0, y: 0 };
+    }
+    setMousePosition(tabId, x, y) {
+        this.mousePositions.set(tabId, { x, y });
+    }
+    async smoothMouseMove(client, tabId, toX, toY, steps = 25) {
+        const from = this.getMousePosition(tabId);
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            const x = from.x + (toX - from.x) * ease;
+            const y = from.y + (toY - from.y) * ease;
+            await client.Input.dispatchMouseEvent({ type: "mouseMoved", x, y });
+            await new Promise((r) => setTimeout(r, 8));
+        }
+        this.setMousePosition(tabId, toX, toY);
+    }
+}

@@ -1,0 +1,6 @@
+src/
+extension/
+node_modules/
+tsconfig.json
+*.ts
+.env
