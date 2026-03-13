@@ -1,24 +1,12 @@
+const SHARED_COLORS = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"];
+
 const CLAUDE_TO_CHROME: Record<string, string> = {
-  red: "red",
-  blue: "blue",
-  green: "green",
-  yellow: "yellow",
-  purple: "purple",
-  orange: "orange",
-  pink: "pink",
-  cyan: "cyan",
+  ...Object.fromEntries(SHARED_COLORS.map((c) => [c, c])),
   default: "grey",
 };
 
 const CHROME_TO_CLAUDE: Record<string, string> = {
-  red: "red",
-  blue: "blue",
-  green: "green",
-  yellow: "yellow",
-  purple: "purple",
-  orange: "orange",
-  pink: "pink",
-  cyan: "cyan",
+  ...Object.fromEntries(SHARED_COLORS.map((c) => [c, c])),
   grey: "default",
 };
 

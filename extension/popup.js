@@ -160,13 +160,7 @@ function renderEvents() {
 
 function renderScreenshots() {
   const grid = document.getElementById("screenshot-grid");
-  const screenshots = state.events.filter(e => e.type === "screenshot" && e.screenshot);
-
-  const filterFn = sessionFilter === "all"
-    ? () => true
-    : e => e.sessionId === sessionFilter;
-
-  const filtered = screenshots.filter(filterFn);
+  const filtered = eventsForCurrentFilter().filter(e => e.type === "screenshot" && e.screenshot);
 
   if (filtered.length === 0) {
     grid.innerHTML = '<div class="empty-screenshots">No screenshots</div>';
