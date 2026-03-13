@@ -1,4 +1,4 @@
-import { appendFileSync, readdirSync, statSync } from "fs";
+import { appendFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../color-mapper.js";
@@ -59,6 +59,7 @@ function renameClaudeSession(newTitle) {
         const entry1 = JSON.stringify({ type: "custom-title", customTitle: newTitle, sessionId: session.sessionId });
         const entry2 = JSON.stringify({ type: "agent-name", agentName: newTitle, sessionId: session.sessionId });
         appendFileSync(session.file, `${entry1}\n${entry2}\n`);
+        writeFileSync(join(homedir(), ".claude", ".pending_rename"), newTitle, "utf8");
         return true;
     }
     catch {

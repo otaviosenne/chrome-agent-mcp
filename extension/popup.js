@@ -204,7 +204,8 @@ function buildDropdownItems() {
   for (const groupTitle of sortedGroups) {
     const sessionId = state.groups[groupTitle] || "";
     const isOrphan = !sessionId || !state.aliveSessions.includes(sessionId);
-    const label = sessionId ? `${sessionId.slice(0, 8)} · ${groupTitle}` : groupTitle;
+    const desc = state.descriptions[groupTitle] || "";
+    const label = desc ? `${groupTitle} — ${desc}` : groupTitle;
     items.push({ value: sessionId, label, orphan: isOrphan, groupTitle });
   }
 

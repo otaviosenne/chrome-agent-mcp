@@ -14,6 +14,10 @@ export interface BridgeEvent {
   tabVerb?: string;
 }
 
+const RECONNECT_INTERVAL_MS = 5000;
+const FIND_ATTEMPTS = 6;
+const FIND_DELAY_MS = 500;
+
 export class ExtensionBridge {
   readonly sessionId: string = randomUUID().slice(0, 8);
   private client: any = null;
@@ -22,10 +26,19 @@ export class ExtensionBridge {
 
   constructor(debugPort: number) {
     this.debugPort = debugPort;
+    this.startReconnectLoop();
+  }
+
+  private startReconnectLoop(): void {
+    setInterval(async () => {
+      if (!this.client) {
+        this.client = await this.findClient();
+      }
+    }, RECONNECT_INTERVAL_MS);
   }
 
   private async findClient(): Promise<any | null> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < FIND_ATTEMPTS; attempt++) {
       try {
         const targets = await (CDP as any).List({ port: this.debugPort });
         const extensionTargets = targets.filter(
@@ -40,13 +53,16 @@ export class ExtensionBridge {
               expression: "typeof self.__mcpLogEvent === 'function'",
               returnByValue: true,
             });
-            if (result?.value === true) return candidate;
+            if (result?.value === true) {
+              candidate.on("disconnect", () => { this.client = null; });
+              return candidate;
+            }
             await candidate.close();
           } catch {}
         }
       } catch {}
 
-      await new Promise<void>(r => setTimeout(r, 300));
+      await new Promise<void>(r => setTimeout(r, FIND_DELAY_MS));
     }
     return null;
   }

@@ -1,5 +1,8 @@
 import CDP from "chrome-remote-interface";
 import { randomUUID } from "crypto";
+const RECONNECT_INTERVAL_MS = 5000;
+const FIND_ATTEMPTS = 6;
+const FIND_DELAY_MS = 500;
 export class ExtensionBridge {
     sessionId = randomUUID().slice(0, 8);
     client = null;
@@ -7,9 +10,17 @@ export class ExtensionBridge {
     tabUrls = new Map();
     constructor(debugPort) {
         this.debugPort = debugPort;
+        this.startReconnectLoop();
+    }
+    startReconnectLoop() {
+        setInterval(async () => {
+            if (!this.client) {
+                this.client = await this.findClient();
+            }
+        }, RECONNECT_INTERVAL_MS);
     }
     async findClient() {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < FIND_ATTEMPTS; attempt++) {
             try {
                 const targets = await CDP.List({ port: this.debugPort });
                 const extensionTargets = targets.filter((t) => t.type === "service_worker" || t.type === "background_page");
@@ -21,15 +32,17 @@ export class ExtensionBridge {
                             expression: "typeof self.__mcpLogEvent === 'function'",
                             returnByValue: true,
                         });
-                        if (result?.value === true)
+                        if (result?.value === true) {
+                            candidate.on("disconnect", () => { this.client = null; });
                             return candidate;
+                        }
                         await candidate.close();
                     }
                     catch { }
                 }
             }
             catch { }
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, FIND_DELAY_MS));
         }
         return null;
     }

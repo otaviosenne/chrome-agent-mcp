@@ -1,7 +1,7 @@
 const MAX_EVENTS = 500;
 const MAX_SCREENSHOTS = 20;
 
-const SESSION_TTL_MS = 15000;
+const SESSION_TTL_MS = 40000;
 
 let events = [];
 let activeTabs = new Map();
@@ -9,7 +9,10 @@ let groups = new Map();
 let descriptions = new Map();
 let chromeGroups = new Map();
 let sessionLastAlive = new Map();
+let sessionHeartbeatCount = new Map();
 let popupPorts = [];
+
+const MAX_PERSISTED_EVENTS = 100;
 
 async function persistActiveTabs() {
   try {
@@ -21,9 +24,18 @@ async function persistActiveTabs() {
   } catch {}
 }
 
+async function persistEvents() {
+  try {
+    const stripped = events.slice(0, MAX_PERSISTED_EVENTS).map(e =>
+      e.screenshot ? { ...e, screenshot: null } : e
+    );
+    await chrome.storage.local.set({ events: stripped });
+  } catch {}
+}
+
 async function restoreActiveTabs() {
   try {
-    const stored = await chrome.storage.local.get(["activeTabs", "groups", "descriptions"]);
+    const stored = await chrome.storage.local.get(["activeTabs", "groups", "descriptions", "events"]);
     if (stored.activeTabs) {
       for (const [k, v] of Object.entries(stored.activeTabs)) activeTabs.set(k, v);
     }
@@ -32,6 +44,9 @@ async function restoreActiveTabs() {
     }
     if (stored.descriptions) {
       for (const [k, v] of Object.entries(stored.descriptions)) descriptions.set(k, v);
+    }
+    if (Array.isArray(stored.events)) {
+      events = stored.events;
     }
   } catch {}
 }
@@ -186,6 +201,16 @@ self.__mcpLogEvent = function (eventJson) {
   }
 
   if (event.sessionId) {
+    if (event.type === "session_alive") {
+      const count = (sessionHeartbeatCount.get(event.sessionId) || 0) + 1;
+      sessionHeartbeatCount.set(event.sessionId, count);
+      if (count >= 2) {
+        sessionLastAlive.set(event.sessionId, Date.now());
+        persistSessionAlive();
+      }
+      broadcastEvent(event);
+      return;
+    }
     sessionLastAlive.set(event.sessionId, Date.now());
     persistSessionAlive();
   }

@@ -16,6 +16,7 @@ export declare class ExtensionBridge {
     private readonly debugPort;
     private readonly tabUrls;
     constructor(debugPort: number);
+    private startReconnectLoop;
     private findClient;
     private getClient;
     log(partial: Omit<BridgeEvent, "sessionId" | "timestamp">): Promise<void>;

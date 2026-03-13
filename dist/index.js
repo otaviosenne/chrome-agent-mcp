@@ -178,4 +178,4 @@ const sendHeartbeat = () => {
     bridge.log({ type: "session_alive", tool: "heartbeat", groupName: connection.tabGroup.getGroupName() });
 };
 sendHeartbeat();
-setInterval(sendHeartbeat, 3000);
+setInterval(sendHeartbeat, 15000);

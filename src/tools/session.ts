@@ -1,4 +1,4 @@
-import { appendFileSync, readdirSync, statSync } from "fs";
+import { appendFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { ChromeConnection } from "../chrome-connection.js";
@@ -65,6 +65,7 @@ function renameClaudeSession(newTitle: string): boolean {
     const entry1 = JSON.stringify({ type: "custom-title", customTitle: newTitle, sessionId: session.sessionId });
     const entry2 = JSON.stringify({ type: "agent-name", agentName: newTitle, sessionId: session.sessionId });
     appendFileSync(session.file, `${entry1}\n${entry2}\n`);
+    writeFileSync(join(homedir(), ".claude", ".pending_rename"), newTitle, "utf8");
     return true;
   } catch {
     return false;
