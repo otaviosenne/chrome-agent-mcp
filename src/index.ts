@@ -32,6 +32,7 @@ import {
   chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition,
   handleChromeWindows, handleChromeFocus, handleChromeExtensions,
 } from "./tools/browser.js";
+import { sessionSyncToolDefinition, handleSessionSync } from "./tools/session.js";
 
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
@@ -62,6 +63,7 @@ const toolHandlers: Record<string, (args: Record<string, unknown>, conn: ChromeC
   chrome_windows: handleChromeWindows,
   chrome_focus: handleChromeFocus,
   chrome_extensions: handleChromeExtensions,
+  session_sync: handleSessionSync,
 };
 
 const allTools = [
@@ -76,6 +78,7 @@ const allTools = [
   devtoolsConsoleToolDefinition, devtoolsNetworkToolDefinition,
   devtoolsElementsToolDefinition, devtoolsStorageToolDefinition,
   chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition,
+  sessionSyncToolDefinition,
 ];
 
 const server = new Server(
@@ -210,3 +213,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+const sendHeartbeat = () => {
+  bridge.log({ type: "session_alive", tool: "heartbeat", groupName: connection.tabGroup.getGroupName() });
+};
+sendHeartbeat();
+setInterval(sendHeartbeat, 3000);

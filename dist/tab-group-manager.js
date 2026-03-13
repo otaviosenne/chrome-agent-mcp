@@ -135,7 +135,7 @@ export class TabGroupManager {
         return null;
     }
     isValidGroupName(name) {
-        return /^CLAUDE #\d+$/.test(name);
+        return /^(CLAUDE )?#\d+/.test(name);
     }
     async determineGroupName() {
         try {
@@ -144,19 +144,20 @@ export class TabGroupManager {
           (async () => {
             const groups = await chrome.tabGroups.query({});
             const nums = groups
-              .filter(g => g.title?.startsWith('CLAUDE #'))
-              .map(g => parseInt(g.title.replace('CLAUDE #', ''), 10))
-              .filter(n => !isNaN(n));
-            let n = 1; while (nums.includes(n)) n++; return n;
+              .filter(g => /^(CLAUDE )?#\\d+/.test(g.title || ''))
+              .map(g => parseInt((g.title.match(/#(\\d+)/) || ['', '0'])[1], 10))
+              .filter(n => n > 0);
+            let n = 1; while (nums.includes(n)) n++;
+            return 'CLAUDE #' + n;
           })()
         `,
                 returnByValue: true,
                 awaitPromise: true,
             });
-            const n = typeof result?.value === "number" && Number.isInteger(result.value) && result.value > 0
+            const name = typeof result?.value === "string" && this.isValidGroupName(result.value)
                 ? result.value
-                : 1;
-            return `CLAUDE #${n}`;
+                : "CLAUDE #1";
+            return name;
         }
         catch {
             return "CLAUDE #1";
@@ -249,5 +250,70 @@ export class TabGroupManager {
     }
     getGroupName() {
         return this.groupName;
+    }
+    getGroupNumber() {
+        const match = this.groupName.match(/#(\d+)/);
+        return match ? parseInt(match[1], 10) : 1;
+    }
+    async renameGroup(newTitle) {
+        await this.initialize();
+        if (!this.extensionClient || this.chromeGroupId === null)
+            return false;
+        try {
+            await this.extensionClient.Runtime.evaluate({
+                expression: `chrome.tabGroups.update(${this.chromeGroupId}, { title: ${JSON.stringify(newTitle)} })`,
+                returnByValue: true,
+                awaitPromise: true,
+            });
+            this.groupName = newTitle;
+            this.saveState();
+            return true;
+        }
+        catch {
+            this.extensionClient = null;
+            return false;
+        }
+    }
+    async setGroupColor(color) {
+        await this.initialize();
+        const validColors = GROUP_COLORS;
+        if (!validColors.includes(color))
+            return false;
+        if (!this.extensionClient || this.chromeGroupId === null)
+            return false;
+        try {
+            await this.extensionClient.Runtime.evaluate({
+                expression: `chrome.tabGroups.update(${this.chromeGroupId}, { color: ${JSON.stringify(color)} })`,
+                returnByValue: true,
+                awaitPromise: true,
+            });
+            this.groupColor = color;
+            this.saveState();
+            return true;
+        }
+        catch {
+            this.extensionClient = null;
+            return false;
+        }
+    }
+    async getGroupState() {
+        await this.initialize();
+        if (this.extensionClient && this.chromeGroupId !== null) {
+            try {
+                const { result } = await this.extensionClient.Runtime.evaluate({
+                    expression: `(async () => { const g = await chrome.tabGroups.get(${this.chromeGroupId}); return JSON.stringify({ name: g.title ?? '', color: g.color }); })()`,
+                    returnByValue: true,
+                    awaitPromise: true,
+                });
+                if (result?.value) {
+                    const parsed = JSON.parse(result.value);
+                    return { name: parsed.name, color: parsed.color, id: this.chromeGroupId };
+                }
+            }
+            catch {
+                this.extensionClient = null;
+            }
+        }
+        return { name: this.groupName, color: this.groupColor, id: this.chromeGroupId };
     }
 }

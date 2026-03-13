@@ -112,14 +112,20 @@ function extractPathVerb(url: string): string {
   return "";
 }
 
+function isInternalUrl(url: string): boolean {
+  return url.startsWith("chrome://") || url.startsWith("chrome-extension://") || url.startsWith("about:");
+}
+
 export function generateTabVerb(tool: string, args: Record<string, unknown>, tabUrl?: string): string {
   const url = (args.url as string) || tabUrl || "";
+  if (isInternalUrl(url)) return TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
   const pathVerb = extractPathVerb(url);
   return pathVerb || TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
 }
 
 export function generateDescription(tool: string, args: Record<string, unknown>, tabUrl?: string): string {
   const url = (args.url as string) || tabUrl || "";
+  if (isInternalUrl(url)) return TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
   const domain = extractDomainLabel(url);
   const verb = generateTabVerb(tool, args, tabUrl);
   const phrase = domain ? `${verb} ${domain}` : verb;

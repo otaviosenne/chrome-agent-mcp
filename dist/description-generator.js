@@ -110,13 +110,20 @@ function extractPathVerb(url) {
     catch { }
     return "";
 }
+function isInternalUrl(url) {
+    return url.startsWith("chrome://") || url.startsWith("chrome-extension://") || url.startsWith("about:");
+}
 export function generateTabVerb(tool, args, tabUrl) {
     const url = args.url || tabUrl || "";
+    if (isInternalUrl(url))
+        return TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
     const pathVerb = extractPathVerb(url);
     return pathVerb || TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
 }
 export function generateDescription(tool, args, tabUrl) {
     const url = args.url || tabUrl || "";
+    if (isInternalUrl(url))
+        return TOOL_VERBS[tool] || TOOL_VERBS[tool.split(":")[0]] || "usando";
     const domain = extractDomainLabel(url);
     const verb = generateTabVerb(tool, args, tabUrl);
     const phrase = domain ? `${verb} ${domain}` : verb;

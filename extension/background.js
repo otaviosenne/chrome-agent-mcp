@@ -1,10 +1,14 @@
 const MAX_EVENTS = 500;
 const MAX_SCREENSHOTS = 20;
 
+const SESSION_TTL_MS = 15000;
+
 let events = [];
 let activeTabs = new Map();
 let groups = new Map();
 let descriptions = new Map();
+let chromeGroups = new Map();
+let sessionLastAlive = new Map();
 let popupPorts = [];
 
 async function persistActiveTabs() {
@@ -32,7 +36,82 @@ async function restoreActiveTabs() {
   } catch {}
 }
 
+async function restoreSessionAlive() {
+  try {
+    const stored = await chrome.storage.session.get(["sessionLastAlive"]);
+    if (stored.sessionLastAlive) {
+      const now = Date.now();
+      for (const [k, v] of Object.entries(stored.sessionLastAlive)) {
+        if (now - v < SESSION_TTL_MS) sessionLastAlive.set(k, v);
+      }
+    }
+  } catch {}
+}
+
+async function persistSessionAlive() {
+  try {
+    await chrome.storage.session.set({ sessionLastAlive: Object.fromEntries(sessionLastAlive) });
+  } catch {}
+}
+
 restoreActiveTabs();
+restoreSessionAlive();
+
+function isClaudeGroup(title) {
+  return /^(CLAUDE )?#\d+/.test(title || "");
+}
+
+async function initChromeGroups() {
+  try {
+    const existing = await chrome.tabGroups.query({});
+    for (const g of existing) {
+      if (isClaudeGroup(g.title)) {
+        chromeGroups.set(g.title, { chromeGroupId: g.id, color: g.color });
+      }
+    }
+    broadcastChromeGroups();
+  } catch {}
+}
+
+function broadcastChromeGroups() {
+  const payload = { type: "chrome_groups", chromeGroups: Object.fromEntries(chromeGroups) };
+  popupPorts = popupPorts.filter(port => {
+    try { port.postMessage(payload); return true; } catch { return false; }
+  });
+}
+
+chrome.tabGroups.onCreated.addListener(g => {
+  if (isClaudeGroup(g.title)) {
+    chromeGroups.set(g.title, { chromeGroupId: g.id, color: g.color });
+    broadcastChromeGroups();
+  }
+});
+
+chrome.tabGroups.onRemoved.addListener(g => {
+  for (const [title, data] of chromeGroups) {
+    if (data.chromeGroupId === g.id) { chromeGroups.delete(title); break; }
+  }
+  broadcastChromeGroups();
+});
+
+chrome.tabGroups.onUpdated.addListener(g => {
+  for (const [title, data] of chromeGroups) {
+    if (data.chromeGroupId === g.id && title !== g.title) { chromeGroups.delete(title); break; }
+  }
+  if (isClaudeGroup(g.title)) {
+    chromeGroups.set(g.title, { chromeGroupId: g.id, color: g.color });
+  }
+  broadcastChromeGroups();
+});
+
+initChromeGroups();
+
+function getAliveSessions() {
+  const now = Date.now();
+  return [...sessionLastAlive.entries()]
+    .filter(([, ts]) => now - ts < SESSION_TTL_MS)
+    .map(([sid]) => sid);
+}
 
 function buildStatePayload() {
   return {
@@ -41,6 +120,8 @@ function buildStatePayload() {
     activeTabs: Object.fromEntries(activeTabs),
     groups: Object.fromEntries(groups),
     descriptions: Object.fromEntries(descriptions),
+    chromeGroups: Object.fromEntries(chromeGroups),
+    aliveSessions: getAliveSessions(),
   };
 }
 
@@ -51,6 +132,8 @@ function broadcastEvent(event) {
     activeTabs: Object.fromEntries(activeTabs),
     groups: Object.fromEntries(groups),
     descriptions: Object.fromEntries(descriptions),
+    chromeGroups: Object.fromEntries(chromeGroups),
+    aliveSessions: getAliveSessions(),
   };
   popupPorts = popupPorts.filter(port => {
     try {
@@ -100,6 +183,16 @@ self.__mcpLogEvent = function (eventJson) {
   } else if (event.type === "tab_done" || event.type === "tab_close") {
     activeTabs.delete(event.tabId);
     persistActiveTabs();
+  }
+
+  if (event.sessionId) {
+    sessionLastAlive.set(event.sessionId, Date.now());
+    persistSessionAlive();
+  }
+
+  if (event.type === "session_alive") {
+    broadcastEvent(event);
+    return;
   }
 
   if (event.groupName && event.sessionId) {

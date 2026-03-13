@@ -1,4 +1,4 @@
-let state = { events: [], activeTabs: {}, groups: {}, descriptions: {} };
+let state = { events: [], activeTabs: {}, groups: {}, descriptions: {}, chromeGroups: {}, aliveSessions: [] };
 let sessionFilter = "all";
 let currentView = "log";
 
@@ -10,16 +10,27 @@ port.onMessage.addListener(msg => {
     state.activeTabs = msg.activeTabs || {};
     state.groups = msg.groups || {};
     state.descriptions = msg.descriptions || {};
+    state.chromeGroups = msg.chromeGroups || {};
+    state.aliveSessions = msg.aliveSessions || [];
     renderAll();
-  } else if (msg.type === "event") {
-    state.events = [msg.event, ...state.events].slice(0, 500);
-    state.activeTabs = msg.activeTabs || {};
-    state.groups = msg.groups || {};
-    state.descriptions = msg.descriptions || {};
+  } else if (msg.type === "event" || msg.type === "session_alive") {
+    if (msg.type === "event") {
+      state.events = [msg.event, ...state.events].slice(0, 500);
+    }
+    state.activeTabs = msg.activeTabs || state.activeTabs;
+    state.groups = msg.groups || state.groups;
+    state.descriptions = msg.descriptions || state.descriptions;
+    state.chromeGroups = msg.chromeGroups || state.chromeGroups;
+    state.aliveSessions = msg.aliveSessions || state.aliveSessions;
     updateSessionFilter();
     renderActiveTabs();
-    if (currentView === "log") renderEvents();
-    else renderScreenshots();
+    if (msg.type === "event") {
+      if (currentView === "log") renderEvents();
+      else renderScreenshots();
+    }
+  } else if (msg.type === "chrome_groups") {
+    state.chromeGroups = msg.chromeGroups || {};
+    updateSessionFilter();
   }
 });
 
@@ -177,31 +188,75 @@ function closeModal() {
   document.getElementById("modal-img").src = "";
 }
 
-function updateSessionFilter() {
-  const select = document.getElementById("session-select");
-  const currentValue = select.value;
-  const sessions = [...new Set(state.events.map(e => e.sessionId).filter(Boolean))];
-
-  const sessionToGroup = Object.fromEntries(
-    Object.entries(state.groups).map(([group, sid]) => [sid, group])
+function buildDropdownItems() {
+  const activeGroups = new Set(
+    Object.values(state.activeTabs).map(t => t.groupName).filter(Boolean)
   );
-  select.innerHTML = '<option value="all">All sessions</option>' +
-    sessions.map(s => {
-      const group = sessionToGroup[s] || "";
-      const label = group ? `${s} · ${group}` : s;
-      return `<option value="${s}"${s === currentValue ? " selected" : ""}>${label}</option>`;
-    }).join("");
 
-  sessionFilter = select.value;
+  const items = [{ value: "all", label: "All sessions", orphan: false }];
+
+  const sortedGroups = Object.keys(state.chromeGroups).sort((a, b) => {
+    const na = parseInt(a.replace("CLAUDE #", ""), 10);
+    const nb = parseInt(b.replace("CLAUDE #", ""), 10);
+    return na - nb;
+  });
+
+  for (const groupTitle of sortedGroups) {
+    const sessionId = state.groups[groupTitle] || "";
+    const isOrphan = !sessionId || !state.aliveSessions.includes(sessionId);
+    const label = sessionId ? `${sessionId.slice(0, 8)} · ${groupTitle}` : groupTitle;
+    items.push({ value: sessionId, label, orphan: isOrphan, groupTitle });
+  }
+
+  return items;
+}
+
+function updateSessionFilter() {
+  const triggerText = document.getElementById("session-trigger-text");
+  const menu = document.getElementById("session-menu");
+  const items = buildDropdownItems();
+
+  menu.innerHTML = items.map(item => `
+    <div class="dropdown-item ${item.value === sessionFilter ? "selected" : ""} ${item.orphan && item.value !== "all" ? "orphan" : ""}"
+         data-value="${item.value}"
+         ${item.orphan && item.value !== "all" ? `data-tooltip="Nenhum Claude Code associado a este grupo"` : ""}>
+      <span class="status-dot ${item.orphan && item.value !== "all" ? "dot-orphan" : item.value !== "all" ? "dot-active" : "dot-none"}"></span>
+      <span class="item-label">${item.label}</span>
+    </div>
+  `).join("");
+
+  menu.querySelectorAll(".dropdown-item").forEach(el => {
+    el.addEventListener("click", () => {
+      sessionFilter = el.dataset.value;
+      closeDropdown();
+      updateSessionFilter();
+      renderEvents();
+      renderScreenshots();
+    });
+  });
+
+  const current = items.find(i => i.value === sessionFilter) || items[0];
+  triggerText.textContent = current.label;
 
   const badge = document.getElementById("session-badge");
-  if (sessions.length > 0) {
-    badge.textContent = sessions[0];
+  const firstSession = Object.values(state.groups)[0];
+  if (firstSession) {
+    badge.textContent = firstSession.slice(0, 8);
     badge.style.display = "";
   } else {
     badge.textContent = "";
     badge.style.display = "none";
   }
+}
+
+function openDropdown() {
+  document.getElementById("session-menu").hidden = false;
+  document.getElementById("session-trigger").classList.add("open");
+}
+
+function closeDropdown() {
+  document.getElementById("session-menu").hidden = true;
+  document.getElementById("session-trigger").classList.remove("open");
 }
 
 function renderAll() {
@@ -228,11 +283,13 @@ document.getElementById("screenshots-tab").addEventListener("click", () => {
   renderScreenshots();
 });
 
-document.getElementById("session-select").addEventListener("change", e => {
-  sessionFilter = e.target.value;
-  renderEvents();
-  renderScreenshots();
+document.getElementById("session-trigger").addEventListener("click", e => {
+  e.stopPropagation();
+  const menu = document.getElementById("session-menu");
+  if (menu.hidden) openDropdown(); else closeDropdown();
 });
+
+document.addEventListener("click", () => closeDropdown());
 
 document.getElementById("clear-btn").addEventListener("click", () => {
   state.events = [];

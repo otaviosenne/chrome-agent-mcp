@@ -17,6 +17,7 @@ import { devtoolsNetworkToolDefinition, handleDevtoolsNetwork } from "./tools/de
 import { devtoolsElementsToolDefinition, handleDevtoolsElements } from "./tools/devtools/elements.js";
 import { devtoolsStorageToolDefinition, handleDevtoolsStorage } from "./tools/devtools/storage.js";
 import { chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition, handleChromeWindows, handleChromeFocus, handleChromeExtensions, } from "./tools/browser.js";
+import { sessionSyncToolDefinition, handleSessionSync } from "./tools/session.js";
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
 const faviconManager = new TabFaviconManager();
@@ -45,6 +46,7 @@ const toolHandlers = {
     chrome_windows: handleChromeWindows,
     chrome_focus: handleChromeFocus,
     chrome_extensions: handleChromeExtensions,
+    session_sync: handleSessionSync,
 };
 const allTools = [
     tabsToolDefinition,
@@ -58,6 +60,7 @@ const allTools = [
     devtoolsConsoleToolDefinition, devtoolsNetworkToolDefinition,
     devtoolsElementsToolDefinition, devtoolsStorageToolDefinition,
     chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition,
+    sessionSyncToolDefinition,
 ];
 const server = new Server({ name: "chrome-agent-mcp", version: "1.0.0" }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: allTools }));
@@ -171,3 +174,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 const transport = new StdioServerTransport();
 await server.connect(transport);
+const sendHeartbeat = () => {
+    bridge.log({ type: "session_alive", tool: "heartbeat", groupName: connection.tabGroup.getGroupName() });
+};
+sendHeartbeat();
+setInterval(sendHeartbeat, 3000);
