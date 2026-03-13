@@ -44,8 +44,40 @@ export class TabGroupManager {
     if (saved) {
       await this.restoreFromState(saved);
     } else if (this.extensionClient) {
-      this.groupName = await this.determineGroupName();
+      await this.discoverExistingGroup();
     }
+  }
+
+  private async discoverExistingGroup(): Promise<void> {
+    try {
+      const { result } = await this.extensionClient.Runtime.evaluate({
+        expression: `
+          (async () => {
+            const groups = await chrome.tabGroups.query({});
+            const claude = groups
+              .filter(g => /^(CLAUDE )?#\\d+/.test(g.title || ''))
+              .sort((a, b) => {
+                const na = parseInt((a.title.match(/#(\\d+)/) || ['','0'])[1], 10);
+                const nb = parseInt((b.title.match(/#(\\d+)/) || ['','0'])[1], 10);
+                return nb - na;
+              });
+            if (!claude.length) return null;
+            return JSON.stringify({ id: claude[0].id, title: claude[0].title, color: claude[0].color });
+          })()
+        `,
+        returnByValue: true,
+        awaitPromise: true,
+      });
+      if (result?.value) {
+        const g = JSON.parse(result.value) as { id: number; title: string; color: string };
+        this.chromeGroupId = g.id;
+        this.groupName = g.title;
+        this.groupColor = (GROUP_COLORS.includes(g.color as any) ? g.color : this.groupColor) as GroupColor;
+        this.saveState();
+        return;
+      }
+    } catch {}
+    this.groupName = await this.determineGroupName();
   }
 
   private loadState(): PersistedState | null {

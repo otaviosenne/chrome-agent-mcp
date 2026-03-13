@@ -231,6 +231,7 @@ self.__mcpLogEvent = function (eventJson) {
 
   events.unshift(event);
   if (events.length > MAX_EVENTS) events.length = MAX_EVENTS;
+  persistEvents();
 
   if (event.type === "screenshot") {
     enforceScreenshotLimit();

@@ -11,6 +11,7 @@ export declare class TabGroupManager {
     constructor(debugPort: number);
     initialize(): Promise<void>;
     private doInitialize;
+    private discoverExistingGroup;
     private loadState;
     private saveState;
     private clearState;

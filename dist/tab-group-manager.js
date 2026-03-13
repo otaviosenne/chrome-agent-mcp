@@ -31,8 +31,40 @@ export class TabGroupManager {
             await this.restoreFromState(saved);
         }
         else if (this.extensionClient) {
-            this.groupName = await this.determineGroupName();
+            await this.discoverExistingGroup();
         }
+    }
+    async discoverExistingGroup() {
+        try {
+            const { result } = await this.extensionClient.Runtime.evaluate({
+                expression: `
+          (async () => {
+            const groups = await chrome.tabGroups.query({});
+            const claude = groups
+              .filter(g => /^(CLAUDE )?#\\d+/.test(g.title || ''))
+              .sort((a, b) => {
+                const na = parseInt((a.title.match(/#(\\d+)/) || ['','0'])[1], 10);
+                const nb = parseInt((b.title.match(/#(\\d+)/) || ['','0'])[1], 10);
+                return nb - na;
+              });
+            if (!claude.length) return null;
+            return JSON.stringify({ id: claude[0].id, title: claude[0].title, color: claude[0].color });
+          })()
+        `,
+                returnByValue: true,
+                awaitPromise: true,
+            });
+            if (result?.value) {
+                const g = JSON.parse(result.value);
+                this.chromeGroupId = g.id;
+                this.groupName = g.title;
+                this.groupColor = (GROUP_COLORS.includes(g.color) ? g.color : this.groupColor);
+                this.saveState();
+                return;
+            }
+        }
+        catch { }
+        this.groupName = await this.determineGroupName();
     }
     loadState() {
         try {
