@@ -150,8 +150,14 @@ function buildStatePayload() {
   };
 }
 
+function broadcastToPopups(payload) {
+  popupPorts = popupPorts.filter(port => {
+    try { port.postMessage(payload); return true; } catch { return false; }
+  });
+}
+
 function broadcastEvent(event) {
-  const payload = {
+  broadcastToPopups({
     type: "event",
     event,
     activeTabs: Object.fromEntries(activeTabs),
@@ -159,14 +165,17 @@ function broadcastEvent(event) {
     descriptions: Object.fromEntries(descriptions),
     chromeGroups: Object.fromEntries(chromeGroups),
     aliveSessions: getAliveSessions(),
-  };
-  popupPorts = popupPorts.filter(port => {
-    try {
-      port.postMessage(payload);
-      return true;
-    } catch {
-      return false;
-    }
+  });
+}
+
+function broadcastSessionAlive() {
+  broadcastToPopups({
+    type: "session_alive",
+    activeTabs: Object.fromEntries(activeTabs),
+    groups: Object.fromEntries(groups),
+    descriptions: Object.fromEntries(descriptions),
+    chromeGroups: Object.fromEntries(chromeGroups),
+    aliveSessions: getAliveSessions(),
   });
 }
 
@@ -219,7 +228,7 @@ self.__mcpLogEvent = async function (eventJson) {
         sessionLastAlive.set(event.sessionId, Date.now());
         persistSessionAlive();
       }
-      broadcastEvent(event);
+      broadcastSessionAlive();
       return;
     }
     sessionLastAlive.set(event.sessionId, Date.now());
@@ -227,7 +236,7 @@ self.__mcpLogEvent = async function (eventJson) {
   }
 
   if (event.type === "session_alive") {
-    broadcastEvent(event);
+    broadcastSessionAlive();
     return;
   }
 

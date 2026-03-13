@@ -1,24 +1,23 @@
 const CLAUDE_TO_CHROME = {
-    purple: "purple",
-    teal: "cyan",
+    red: "red",
+    blue: "blue",
     green: "green",
     yellow: "yellow",
+    purple: "purple",
     orange: "yellow",
-    red: "red",
     pink: "pink",
-    blue: "blue",
-    grey: "grey",
-    gray: "grey",
+    cyan: "cyan",
+    default: "grey",
 };
 const CHROME_TO_CLAUDE = {
-    purple: "purple",
-    cyan: "teal",
+    red: "red",
+    blue: "blue",
     green: "green",
     yellow: "yellow",
-    red: "red",
+    purple: "purple",
     pink: "pink",
-    blue: "blue",
-    grey: "grey",
+    cyan: "cyan",
+    grey: "default",
 };
 export function claudeToChrome(claudeColor) {
     return CLAUDE_TO_CHROME[claudeColor.toLowerCase()] ?? null;
@@ -26,4 +25,4 @@ export function claudeToChrome(claudeColor) {
 export function chromeToClaude(chromeColor) {
     return CHROME_TO_CLAUDE[chromeColor.toLowerCase()] ?? null;
 }
-export const VALID_CLAUDE_COLORS = Object.keys(CLAUDE_TO_CHROME).filter((k) => k !== "gray");
+export const VALID_CLAUDE_COLORS = Object.keys(CLAUDE_TO_CHROME);
