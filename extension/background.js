@@ -12,7 +12,7 @@ let sessionLastAlive = new Map();
 let sessionHeartbeatCount = new Map();
 let popupPorts = [];
 
-const MAX_PERSISTED_EVENTS = 100;
+const STORAGE_SIZE_LIMIT_BYTES = 3 * 1024 * 1024;
 
 async function persistActiveTabs() {
   try {
@@ -26,10 +26,21 @@ async function persistActiveTabs() {
 
 async function persistEvents() {
   try {
-    const stripped = events.slice(0, MAX_PERSISTED_EVENTS).map(e =>
-      e.screenshot ? { ...e, screenshot: null } : e
-    );
-    await chrome.storage.local.set({ events: stripped });
+    const toSave = events.slice();
+    let serialized = JSON.stringify(toSave);
+    while (serialized.length > STORAGE_SIZE_LIMIT_BYTES) {
+      let removed = false;
+      for (let i = toSave.length - 1; i >= 0; i--) {
+        if (toSave[i].screenshot) {
+          toSave[i] = { ...toSave[i], screenshot: null };
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) break;
+      serialized = JSON.stringify(toSave);
+    }
+    await chrome.storage.local.set({ events: toSave });
   } catch {}
 }
 
@@ -69,8 +80,7 @@ async function persistSessionAlive() {
   } catch {}
 }
 
-restoreActiveTabs();
-restoreSessionAlive();
+const restorePromise = Promise.all([restoreActiveTabs(), restoreSessionAlive()]);
 
 function isClaudeGroup(title) {
   return /^(CLAUDE )?#\d+/.test(title || "");
@@ -172,7 +182,8 @@ function enforceScreenshotLimit() {
   }
 }
 
-self.__mcpLogEvent = function (eventJson) {
+self.__mcpLogEvent = async function (eventJson) {
+  await restorePromise;
   let parsed;
   try {
     parsed = typeof eventJson === "string" ? JSON.parse(eventJson) : eventJson;

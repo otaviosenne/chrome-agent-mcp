@@ -100,9 +100,10 @@ export async function handleSessionSync(args, connection) {
             };
         }
         const success = await tabGroup.setGroupColor(chromeColor);
+        writeFileSync(join(homedir(), ".claude", ".pending_color"), claudeColor, "utf8");
         const text = success
-            ? `Chrome group color set to ${chromeColor}.\nTo sync Claude theme, run: /color ${claudeColor}`
-            : `Could not update Chrome group color.\nTo sync Claude theme, run: /color ${claudeColor}`;
+            ? `Chrome group color set to ${chromeColor}. Claude theme will sync to ${claudeColor}.`
+            : `Could not update Chrome group color. Claude theme will sync to ${claudeColor}.`;
         return { content: [{ type: "text", text }] };
     }
     if (action === "detect") {
