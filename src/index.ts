@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { ChromeConnection } from "./chrome-connection.js";
 import { TabFaviconManager } from "./tab-favicon-manager.js";
 import { ExtensionBridge } from "./extension-bridge.js";
+import { generateDescription, generateTabVerb } from "./description-generator.js";
 import { ToolResult } from "./types.js";
 
 import { tabsToolDefinition, handleTabs } from "./tools/tabs.js";
@@ -91,12 +92,13 @@ const DONE_RESTORE_DELAY_MS = 3000;
 
 const stopTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function scheduleStop(tabId: string): void {
+function scheduleStop(tabId: string, groupName: string): void {
   const existing = stopTimers.get(tabId);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(async () => {
     stopTimers.delete(tabId);
     await faviconManager.markDone(tabId, connection);
+    bridge.log({ type: "tab_done", tool: "browser_tabs:stop", tabId, groupName, description: "inativo" });
     setTimeout(() => faviconManager.stopActivity(tabId, connection), DONE_RESTORE_DELAY_MS);
   }, STOP_DELAY_MS);
   stopTimers.set(tabId, timer);
@@ -144,7 +146,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       cancelStop(doneTabId);
       await faviconManager.markDone(doneTabId, connection);
       setTimeout(() => faviconManager.stopActivity(doneTabId, connection), DONE_RESTORE_DELAY_MS);
-      bridge.log({ type: "tab_done", tool: "browser_tabs:done", tabId: doneTabId, groupName });
+      bridge.log({ type: "tab_done", tool: "browser_tabs:done", tabId: doneTabId, groupName, description: "finalizando tarefa" });
     }
     return { content: [{ type: "text", text: "Tab marked as done" }] } as any;
   }
@@ -159,12 +161,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (tabId && !skipBridge) {
+    const tabUrl = args.url as string | undefined;
     bridge.log({
       type: "tab_active",
       tool: name + (args.action ? `:${args.action}` : ""),
       tabId,
-      tabUrl: args.url as string | undefined,
+      tabUrl,
       groupName,
+      description: generateDescription(name, args, tabUrl),
+      tabVerb: generateTabVerb(name, args, tabUrl),
     });
   }
 
@@ -175,7 +180,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const newTabId = extractNewTabId(result);
       if (newTabId) {
         faviconManager.startActivityAfterLoad(newTabId, connection);
-        bridge.log({ type: "tab_open", tool: "browser_tabs:new", tabId: newTabId, groupName });
+        bridge.log({ type: "tab_open", tool: "browser_tabs:new", tabId: newTabId, groupName, description: generateDescription("browser_tabs:new", args), tabVerb: generateTabVerb("browser_tabs:new", args) });
       }
     }
 
@@ -184,9 +189,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (isTabsClose && tabId) {
       cancelStop(tabId);
       await faviconManager.stopActivity(tabId, connection);
-      bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName });
+      bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName, description: "fechando tab" });
     } else if (tabId) {
-      scheduleStop(tabId);
+      scheduleStop(tabId, groupName);
     }
 
     if (name === "browser_take_screenshot") {

@@ -4,7 +4,35 @@ const MAX_SCREENSHOTS = 20;
 let events = [];
 let activeTabs = new Map();
 let groups = new Map();
+let descriptions = new Map();
 let popupPorts = [];
+
+async function persistActiveTabs() {
+  try {
+    await chrome.storage.local.set({
+      activeTabs: Object.fromEntries(activeTabs),
+      groups: Object.fromEntries(groups),
+      descriptions: Object.fromEntries(descriptions),
+    });
+  } catch {}
+}
+
+async function restoreActiveTabs() {
+  try {
+    const stored = await chrome.storage.local.get(["activeTabs", "groups", "descriptions"]);
+    if (stored.activeTabs) {
+      for (const [k, v] of Object.entries(stored.activeTabs)) activeTabs.set(k, v);
+    }
+    if (stored.groups) {
+      for (const [k, v] of Object.entries(stored.groups)) groups.set(k, v);
+    }
+    if (stored.descriptions) {
+      for (const [k, v] of Object.entries(stored.descriptions)) descriptions.set(k, v);
+    }
+  } catch {}
+}
+
+restoreActiveTabs();
 
 function buildStatePayload() {
   return {
@@ -12,6 +40,7 @@ function buildStatePayload() {
     events,
     activeTabs: Object.fromEntries(activeTabs),
     groups: Object.fromEntries(groups),
+    descriptions: Object.fromEntries(descriptions),
   };
 }
 
@@ -21,6 +50,7 @@ function broadcastEvent(event) {
     event,
     activeTabs: Object.fromEntries(activeTabs),
     groups: Object.fromEntries(groups),
+    descriptions: Object.fromEntries(descriptions),
   };
   popupPorts = popupPorts.filter(port => {
     try {
@@ -64,13 +94,21 @@ self.__mcpLogEvent = function (eventJson) {
       title: event.tabTitle || existing.title || "",
       groupName: event.groupName,
       sessionId: event.sessionId,
+      tabVerb: event.tabVerb || existing.tabVerb || "",
     });
+    persistActiveTabs();
   } else if (event.type === "tab_done" || event.type === "tab_close") {
     activeTabs.delete(event.tabId);
+    persistActiveTabs();
   }
 
   if (event.groupName && event.sessionId) {
     groups.set(event.groupName, event.sessionId);
+  }
+
+  if (event.groupName && event.description && event.type !== "tab_done" && event.type !== "tab_close") {
+    descriptions.set(event.groupName, event.description);
+    persistActiveTabs();
   }
 
   events.unshift(event);
@@ -94,6 +132,7 @@ self.__getMcpState = function () {
     events,
     activeTabs: Object.fromEntries(activeTabs),
     groups: Object.fromEntries(groups),
+    descriptions: Object.fromEntries(descriptions),
   });
 };
 

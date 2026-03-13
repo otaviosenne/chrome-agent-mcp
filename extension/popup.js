@@ -1,4 +1,4 @@
-let state = { events: [], activeTabs: {}, groups: {} };
+let state = { events: [], activeTabs: {}, groups: {}, descriptions: {} };
 let sessionFilter = "all";
 let currentView = "log";
 
@@ -9,11 +9,13 @@ port.onMessage.addListener(msg => {
     state.events = msg.events || [];
     state.activeTabs = msg.activeTabs || {};
     state.groups = msg.groups || {};
+    state.descriptions = msg.descriptions || {};
     renderAll();
   } else if (msg.type === "event") {
     state.events = [msg.event, ...state.events].slice(0, 500);
     state.activeTabs = msg.activeTabs || {};
     state.groups = msg.groups || {};
+    state.descriptions = msg.descriptions || {};
     updateSessionFilter();
     renderActiveTabs();
     if (currentView === "log") renderEvents();
@@ -73,18 +75,36 @@ function renderActiveTabs() {
     return;
   }
 
-  list.innerHTML = entries.map(([tabId, info]) => `
-    <div class="active-tab-item">
-      <div class="pulse-dot"></div>
-      <div class="active-tab-info">
-        <span class="active-tab-url">${safeHostname(info.url) || info.title || tabId}</span>
-        <div class="active-tab-meta">
-          <span class="active-tab-session">${(info.sessionId || "").slice(0, 8)}</span>
-          <span class="active-tab-group">${info.groupName || ""}</span>
+  const byGroup = new Map();
+  for (const [tabId, info] of entries) {
+    const key = info.groupName || tabId;
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key).push([tabId, info]);
+  }
+
+  list.innerHTML = Array.from(byGroup.entries()).map(([groupKey, tabs]) => {
+    const [, latest] = tabs[tabs.length - 1];
+    const sessionId = (latest.sessionId || "").slice(0, 8);
+    const sessionDesc = (latest.groupName && state.descriptions[latest.groupName]) || "";
+    const domain = safeHostname(latest.url) || latest.title || "";
+    const tabVerb = latest.tabVerb || "";
+    const tabLine = domain && tabVerb ? `${domain} • ${tabVerb}` : domain || tabVerb || "–";
+    const groupName = latest.groupName || "";
+
+    return `
+      <div class="active-tab-item">
+        <div class="pulse-dot"></div>
+        <div class="active-tab-info">
+          <div class="active-tab-row-session">
+            <span class="active-tab-session-id">${sessionId}</span>
+            ${sessionDesc ? `<span class="active-tab-sep">•</span><span class="active-tab-session-desc">${sessionDesc}</span>` : ""}
+            <span class="active-tab-group">${groupName}</span>
+          </div>
+          <div class="active-tab-row-tab">${tabLine}</div>
         </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 
 function renderEvents() {
@@ -98,19 +118,24 @@ function renderEvents() {
     return;
   }
 
-  list.innerHTML = filtered.map(event => `
-    <div class="event-item">
-      ${eventBadge(event.type)}
-      <div class="event-body">
-        <div class="event-tool">${event.tool || event.type}</div>
-        ${event.tabUrl ? `<div class="event-url">${safeHostname(event.tabUrl)}</div>` : ""}
+  list.innerHTML = filtered.map(event => {
+    const sid = (event.sessionId || "").slice(0, 8);
+    const desc = event.groupName && state.descriptions[event.groupName];
+    const sessionLabel = desc ? `${sid} • ${desc}` : sid;
+    return `
+      <div class="event-item">
+        ${eventBadge(event.type)}
+        <div class="event-body">
+          <div class="event-tool">${event.tool || event.type}</div>
+          ${event.tabUrl ? `<div class="event-url">${safeHostname(event.tabUrl)}</div>` : ""}
+        </div>
+        <div class="event-meta">
+          <span class="event-session">${sessionLabel}</span>
+          <span class="event-time">${formatTime(event.timestamp)}</span>
+        </div>
       </div>
-      <div class="event-meta">
-        <span class="event-session">${event.sessionId || ""}</span>
-        <span class="event-time">${formatTime(event.timestamp)}</span>
-      </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 
 function renderScreenshots() {

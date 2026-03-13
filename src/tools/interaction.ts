@@ -31,8 +31,11 @@ async function getElementCenter(client: any, ref: number): Promise<{ x: number; 
 
 async function mouseClick(client: any, x: number, y: number): Promise<void> {
   await client.Input.dispatchMouseEvent({ type: "mousePressed", x, y, button: "left", clickCount: 1 });
-  await new Promise((r) => setTimeout(r, 40 + Math.random() * 60));
-  await client.Input.dispatchMouseEvent({ type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  try {
+    await new Promise((r) => setTimeout(r, 40 + Math.random() * 60));
+  } finally {
+    await client.Input.dispatchMouseEvent({ type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  }
 }
 
 export const clickToolDefinition: Tool = {

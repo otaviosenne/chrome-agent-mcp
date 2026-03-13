@@ -18,6 +18,7 @@ export declare class TabGroupManager {
     private fetchLivePageIds;
     private chromeGroupExists;
     private findExtensionClient;
+    private isValidGroupName;
     private determineGroupName;
     addTab(cdpTabId: string): Promise<void>;
     private tryAddToVisualGroup;

@@ -7,6 +7,8 @@ export interface BridgeEvent {
     sessionId: string;
     timestamp: number;
     screenshot?: string;
+    description?: string;
+    tabVerb?: string;
 }
 export declare class ExtensionBridge {
     readonly sessionId: string;

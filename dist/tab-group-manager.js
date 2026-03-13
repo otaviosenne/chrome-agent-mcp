@@ -74,11 +74,13 @@ export class TabGroupManager {
         if (survivingIds.length === 0) {
             this.groupName = this.extensionClient
                 ? await this.determineGroupName()
-                : saved.groupName;
+                : (this.isValidGroupName(saved.groupName) ? saved.groupName : "CLAUDE #1");
             return;
         }
         survivingIds.forEach(id => this.ownedTabIds.add(id));
-        this.groupName = saved.groupName;
+        this.groupName = this.isValidGroupName(saved.groupName)
+            ? saved.groupName
+            : (this.extensionClient ? await this.determineGroupName() : "CLAUDE #1");
         const groupStillExists = saved.chromeGroupId !== null && this.extensionClient
             ? await this.chromeGroupExists(saved.chromeGroupId)
             : false;
@@ -132,6 +134,9 @@ export class TabGroupManager {
         }
         return null;
     }
+    isValidGroupName(name) {
+        return /^CLAUDE #\d+$/.test(name);
+    }
     async determineGroupName() {
         try {
             const { result } = await this.extensionClient.Runtime.evaluate({
@@ -148,7 +153,10 @@ export class TabGroupManager {
                 returnByValue: true,
                 awaitPromise: true,
             });
-            return `CLAUDE #${result?.value ?? 1}`;
+            const n = typeof result?.value === "number" && Number.isInteger(result.value) && result.value > 0
+                ? result.value
+                : 1;
+            return `CLAUDE #${n}`;
         }
         catch {
             return "CLAUDE #1";
