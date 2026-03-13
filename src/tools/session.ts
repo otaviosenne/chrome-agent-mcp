@@ -34,22 +34,25 @@ export const sessionSyncToolDefinition = {
   },
 };
 
-function encodeProjectPath(cwd: string): string {
-  return cwd.replace(/\//g, "-");
-}
-
 function findCurrentSessionFile(): { file: string; sessionId: string } | null {
   try {
-    const sessionsDir = join(homedir(), ".claude", "projects", encodeProjectPath(process.cwd()));
-    const entries = readdirSync(sessionsDir)
-      .filter((f) => f.endsWith(".jsonl"))
-      .map((f) => ({
-        file: join(sessionsDir, f),
-        sessionId: f.replace(".jsonl", ""),
-        mtime: statSync(join(sessionsDir, f)).mtimeMs,
-      }))
-      .sort((a, b) => b.mtime - a.mtime);
-    return entries[0] ?? null;
+    const projectsRoot = join(homedir(), ".claude", "projects");
+    let best: { file: string; sessionId: string; mtime: number } | null = null;
+
+    for (const projectDir of readdirSync(projectsRoot)) {
+      const dir = join(projectsRoot, projectDir);
+      try {
+        for (const f of readdirSync(dir).filter((f) => f.endsWith(".jsonl"))) {
+          const file = join(dir, f);
+          const mtime = statSync(file).mtimeMs;
+          if (!best || mtime > best.mtime) {
+            best = { file, sessionId: f.replace(".jsonl", ""), mtime };
+          }
+        }
+      } catch {}
+    }
+
+    return best ? { file: best.file, sessionId: best.sessionId } : null;
   } catch {
     return null;
   }
