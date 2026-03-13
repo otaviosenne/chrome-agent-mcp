@@ -1,3 +1,6 @@
+import { appendFileSync, readdirSync, statSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { ChromeConnection } from "../chrome-connection.js";
 import { ToolResult } from "../types.js";
 import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../color-mapper.js";
@@ -6,7 +9,7 @@ export const sessionSyncToolDefinition = {
   name: "session_sync",
   description:
     "Sync Claude session name/color with Chrome tab group. " +
-    "'rename': renames Chrome group to '#N description' format and returns the /rename command. " +
+    "'rename': renames BOTH the Claude chat AND Chrome group automatically. " +
     "'color': maps a Claude Code color to Chrome group color and returns the /color command. " +
     "'detect': reads current Chrome group state and returns matching /rename + /color commands.",
   inputSchema: {
@@ -16,7 +19,7 @@ export const sessionSyncToolDefinition = {
         type: "string",
         enum: ["rename", "color", "detect"],
         description:
-          "rename: set new session name | color: sync theme color | detect: check Chrome group state",
+          "rename: set new session name (syncs both) | color: sync theme color | detect: check Chrome group state",
       },
       description: {
         type: "string",
@@ -31,6 +34,40 @@ export const sessionSyncToolDefinition = {
   },
 };
 
+function encodeProjectPath(cwd: string): string {
+  return cwd.replace(/\//g, "-");
+}
+
+function findCurrentSessionFile(): { file: string; sessionId: string } | null {
+  try {
+    const sessionsDir = join(homedir(), ".claude", "projects", encodeProjectPath(process.cwd()));
+    const entries = readdirSync(sessionsDir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .map((f) => ({
+        file: join(sessionsDir, f),
+        sessionId: f.replace(".jsonl", ""),
+        mtime: statSync(join(sessionsDir, f)).mtimeMs,
+      }))
+      .sort((a, b) => b.mtime - a.mtime);
+    return entries[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function renameClaudeSession(newTitle: string): boolean {
+  try {
+    const session = findCurrentSessionFile();
+    if (!session) return false;
+    const entry1 = JSON.stringify({ type: "custom-title", customTitle: newTitle, sessionId: session.sessionId });
+    const entry2 = JSON.stringify({ type: "agent-name", agentName: newTitle, sessionId: session.sessionId });
+    appendFileSync(session.file, `${entry1}\n${entry2}\n`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function handleSessionSync(
   args: Record<string, unknown>,
   connection: ChromeConnection
@@ -42,11 +79,17 @@ export async function handleSessionSync(
     const raw = ((args.description as string | undefined) ?? "").trim().slice(0, 20);
     const groupNum = tabGroup.getGroupNumber();
     const newName = raw ? `#${groupNum} ${raw}` : `#${groupNum}`;
-    const success = await tabGroup.renameGroup(newName);
-    const text = success
-      ? `Chrome group renamed to "${newName}".\nTo complete sync, run: /rename ${newName}`
-      : `Could not reach Chrome group (no active tab group yet?).\nTo sync Claude side anyway, run: /rename ${newName}`;
-    return { content: [{ type: "text", text }] };
+
+    const chromeOk = await tabGroup.renameGroup(newName);
+    const claudeOk = renameClaudeSession(newName);
+
+    const parts: string[] = [];
+    if (claudeOk) parts.push(`Claude chat renamed to "${newName}"`);
+    else parts.push(`Claude rename failed (run manually: /rename ${newName})`);
+    if (chromeOk) parts.push(`Chrome group renamed to "${newName}"`);
+    else parts.push(`Chrome group not reachable (no active tab group yet?)`);
+
+    return { content: [{ type: "text", text: parts.join("\n") }] };
   }
 
   if (action === "color") {
@@ -64,8 +107,8 @@ export async function handleSessionSync(
     }
     const success = await tabGroup.setGroupColor(chromeColor);
     const text = success
-      ? `Chrome group color set to ${chromeColor}.\nTo complete sync, run: /color ${claudeColor}`
-      : `Could not update Chrome group color.\nTo sync Claude side anyway, run: /color ${claudeColor}`;
+      ? `Chrome group color set to ${chromeColor}.\nTo sync Claude theme, run: /color ${claudeColor}`
+      : `Could not update Chrome group color.\nTo sync Claude theme, run: /color ${claudeColor}`;
     return { content: [{ type: "text", text }] };
   }
 
