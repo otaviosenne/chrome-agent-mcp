@@ -2,7 +2,7 @@ import CDP from "chrome-remote-interface";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan"];
+const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
 const STATE_DIR = join(homedir(), ".local", "share", "chrome-agent-mcp");
 export class TabGroupManager {
     debugPort;

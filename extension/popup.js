@@ -118,11 +118,20 @@ function renderActiveTabs() {
   }).join("");
 }
 
+function eventsForCurrentFilter() {
+  if (sessionFilter !== "all") {
+    return state.events.filter(e => e.sessionId === sessionFilter);
+  }
+  if (state.aliveSessions.length > 0) {
+    const alive = state.events.filter(e => state.aliveSessions.includes(e.sessionId));
+    return alive.length > 0 ? alive : state.events;
+  }
+  return state.events;
+}
+
 function renderEvents() {
   const list = document.getElementById("event-list");
-  const filtered = sessionFilter === "all"
-    ? state.events
-    : state.events.filter(e => e.sessionId === sessionFilter);
+  const filtered = eventsForCurrentFilter();
 
   if (filtered.length === 0) {
     list.innerHTML = '<div class="empty-log">No events</div>';

@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan"] as const;
+const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"] as const;
 type GroupColor = typeof GROUP_COLORS[number];
 
 const STATE_DIR = join(homedir(), ".local", "share", "chrome-agent-mcp");
