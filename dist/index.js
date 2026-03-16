@@ -17,11 +17,28 @@ import { devtoolsNetworkToolDefinition, handleDevtoolsNetwork } from "./tools/de
 import { devtoolsElementsToolDefinition, handleDevtoolsElements } from "./tools/devtools/elements.js";
 import { devtoolsStorageToolDefinition, handleDevtoolsStorage } from "./tools/devtools/storage.js";
 import { chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition, handleChromeWindows, handleChromeFocus, handleChromeExtensions, } from "./tools/browser.js";
-import { sessionSyncToolDefinition, handleSessionSync } from "./tools/session.js";
+import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, renameClaudeSession, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
+import { executeResilient, openFallbackGroup } from "./tool-resilience.js";
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
 const faviconManager = new TabFaviconManager();
 const bridge = new ExtensionBridge(DEBUG_PORT);
+let lastSyncedSessionPath = null;
+async function autoSyncOnce() {
+    const currentPath = getCurrentSessionPath();
+    if (!currentPath || currentPath === lastSyncedSessionPath)
+        return;
+    lastSyncedSessionPath = currentPath;
+    connection.tabGroup.resetForNewSession();
+    await connection.tabGroup.initialize();
+    const name = connection.tabGroup.getGroupName();
+    const color = connection.tabGroup.getGroupColor();
+    const currentTitle = getCurrentSessionTitle();
+    if (currentTitle !== name) {
+        renameClaudeSession(name);
+        writeAutoSync(name, color);
+    }
+}
 const toolHandlers = {
     browser_tabs: handleTabs,
     browser_navigate: handleNavigate,
@@ -64,6 +81,25 @@ const allTools = [
 ];
 const server = new Server({ name: "chrome-agent-mcp", version: "1.0.0" }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: allTools }));
+const IDEMPOTENT_TOOLS = new Set([
+    "browser_snapshot",
+    "browser_take_screenshot",
+    "browser_evaluate",
+    "devtools_console",
+    "devtools_network",
+    "devtools_elements",
+    "devtools_storage",
+    "chrome_windows",
+    "chrome_extensions",
+    "session_sync",
+]);
+function isIdempotentCall(name, args) {
+    if (IDEMPOTENT_TOOLS.has(name))
+        return true;
+    if (name === "browser_tabs" && args.action === "list")
+        return true;
+    return false;
+}
 const SKIP_FAVICON_ACTIONS = new Set(["list", "close", "switch", "done"]);
 const NAVIGATION_TOOLS = new Set(["browser_navigate", "browser_navigate_back", "browser_navigate_forward", "browser_reload"]);
 const STOP_DELAY_MS = 25000;
@@ -98,6 +134,7 @@ function extractScreenshot(result) {
 }
 const SKIP_BRIDGE_ACTIONS = new Set(["list", "switch"]);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    await autoSyncOnce();
     const { name, arguments: args = {} } = request.params;
     const handler = toolHandlers[name];
     if (!handler) {
@@ -141,12 +178,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
     }
     try {
-        const result = (await handler(args, connection));
-        if (isTabsNew) {
-            const newTabId = extractNewTabId(result);
-            if (newTabId) {
-                faviconManager.startActivityAfterLoad(newTabId, connection);
-                bridge.log({ type: "tab_open", tool: "browser_tabs:new", tabId: newTabId, groupName, description: generateDescription("browser_tabs:new", args), tabVerb: generateTabVerb("browser_tabs:new", args) });
+        const isIdempotent = isIdempotentCall(name, args);
+        const result = (await executeResilient(() => handler(args, connection), isIdempotent, () => openFallbackGroup(connection)));
+        const createdTabId = extractNewTabId(result);
+        if (createdTabId && (isTabsNew || name === "browser_navigate")) {
+            faviconManager.startActivityAfterLoad(createdTabId, connection);
+            bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url, groupName: connection.tabGroup.getGroupName(), description: generateDescription(name, args, args.url), tabVerb: generateTabVerb(name, args, args.url) });
+            const groupName = connection.tabGroup.getGroupName();
+            if (getCurrentSessionTitle() !== groupName) {
+                writeAutoSync(groupName, connection.tabGroup.getGroupColor());
             }
         }
         if (isNavigation && tabId)
@@ -177,5 +217,6 @@ await server.connect(transport);
 const sendHeartbeat = () => {
     bridge.log({ type: "session_alive", tool: "heartbeat", groupName: connection.tabGroup.getGroupName() });
 };
+bridge.setOnConnected(sendHeartbeat);
 sendHeartbeat();
 setInterval(sendHeartbeat, 15000);

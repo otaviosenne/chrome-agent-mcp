@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude MCP Dashboard</title>
-  <link rel="stylesheet" href="popup.css" />
+  <link rel="stylesheet" href="css/base.css" />
 </head>
 <body>
   <header>
@@ -35,6 +35,7 @@
       </button>
       <div id="session-menu" class="dropdown-menu" hidden></div>
     </div>
+    <button id="copy-btn">Copy</button>
     <button id="clear-btn">Clear</button>
   </div>
 
@@ -51,6 +52,6 @@
     <img id="modal-img" src="" alt="Screenshot" />
   </div>
 
-  <script src="popup.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

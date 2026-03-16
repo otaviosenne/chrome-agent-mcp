@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import CDP from "chrome-remote-interface";
-import { ChromeConnection } from "../chrome-connection.js";
+import { ChromeConnection } from "../core/connection.js";
 import { ToolResult } from "../types.js";
 
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);

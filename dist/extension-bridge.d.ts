@@ -15,7 +15,9 @@ export declare class ExtensionBridge {
     private client;
     private readonly debugPort;
     private readonly tabUrls;
+    private onConnected?;
     constructor(debugPort: number);
+    setOnConnected(cb: () => void): void;
     private startReconnectLoop;
     private findClient;
     private getClient;

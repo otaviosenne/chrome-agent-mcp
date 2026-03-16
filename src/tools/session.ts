@@ -1,9 +1,9 @@
-import { appendFileSync, readdirSync, statSync, writeFileSync } from "fs";
+import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { ChromeConnection } from "../chrome-connection.js";
+import { ChromeConnection } from "../core/connection.js";
 import { ToolResult } from "../types.js";
-import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../color-mapper.js";
+import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../utils/identity.js";
 
 export const sessionSyncToolDefinition = {
   name: "session_sync",
@@ -34,6 +34,29 @@ export const sessionSyncToolDefinition = {
   },
 };
 
+export function getCurrentSessionPath(): string | null {
+  return findCurrentSessionFile()?.file ?? null;
+}
+
+export function getCurrentSessionTitle(): string | null {
+  try {
+    const session = findCurrentSessionFile();
+    if (!session) return null;
+    const lines = readFileSync(session.file, "utf8").trim().split("\n");
+    let title: string | null = null;
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.customTitle) title = entry.customTitle;
+        else if (entry.agentName) title = entry.agentName;
+      } catch {}
+    }
+    return title;
+  } catch {
+    return null;
+  }
+}
+
 function findCurrentSessionFile(): { file: string; sessionId: string } | null {
   try {
     const projectsRoot = join(homedir(), ".claude", "projects");
@@ -58,7 +81,7 @@ function findCurrentSessionFile(): { file: string; sessionId: string } | null {
   }
 }
 
-function renameClaudeSession(newTitle: string): boolean {
+export function renameClaudeSession(newTitle: string): boolean {
   try {
     const session = findCurrentSessionFile();
     if (!session) return false;
@@ -70,6 +93,18 @@ function renameClaudeSession(newTitle: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function writeAutoSync(groupName: string, groupColor: string): void {
+  try {
+    const claudeDir = join(homedir(), ".claude");
+    const claudeColor = chromeToClaude(groupColor) ?? "default";
+    writeFileSync(join(claudeDir, ".pending_rename"), groupName, "utf8");
+    writeFileSync(join(claudeDir, ".pending_color"), claudeColor, "utf8");
+    const kittyPid = process.env.KITTY_PID ?? "";
+    const pidPayload = kittyPid ? `kitty:${kittyPid}` : `mcp:${process.pid}`;
+    writeFileSync(join(claudeDir, ".pending_pid"), pidPayload, "utf8");
+  } catch {}
 }
 
 export async function handleSessionSync(

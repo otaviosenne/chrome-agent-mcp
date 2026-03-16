@@ -8,14 +8,20 @@ export class ExtensionBridge {
     client = null;
     debugPort;
     tabUrls = new Map();
+    onConnected;
     constructor(debugPort) {
         this.debugPort = debugPort;
         this.startReconnectLoop();
+    }
+    setOnConnected(cb) {
+        this.onConnected = cb;
     }
     startReconnectLoop() {
         setInterval(async () => {
             if (!this.client) {
                 this.client = await this.findClient();
+                if (this.client)
+                    this.onConnected?.();
             }
         }, RECONNECT_INTERVAL_MS);
     }

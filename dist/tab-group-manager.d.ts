@@ -20,8 +20,10 @@ export declare class TabGroupManager {
     private chromeGroupExists;
     private findExtensionClient;
     private isValidGroupName;
-    private determineGroupName;
+    private assignNewGroupIdentity;
+    resetForNewSession(): void;
     addTab(cdpTabId: string): Promise<void>;
+    private scheduleGroupRetry;
     private tryAddToVisualGroup;
     removeTab(tabId: string): void;
     isOwned(tabId: string): boolean;
@@ -29,6 +31,7 @@ export declare class TabGroupManager {
     getOwnedTabIds(): ReadonlySet<string>;
     getGroupName(): string;
     getGroupNumber(): number;
+    getGroupColor(): string;
     renameGroup(newTitle: string): Promise<boolean>;
     setGroupColor(color: string): Promise<boolean>;
     getGroupState(): Promise<{

@@ -1,5 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { ChromeConnection } from "../chrome-connection.js";
+import { ChromeConnection } from "../core/connection.js";
 import { ToolResult } from "../types.js";
 
 const LOAD_TIMEOUT_MS = 15000;
@@ -64,8 +64,15 @@ export async function handleNavigate(
   args: Record<string, unknown>,
   connection: ChromeConnection
 ): Promise<ToolResult> {
-  const client = await connection.getClient(args.tabId as string | undefined);
   const url = args.url as string;
+  const explicitTabId = args.tabId as string | undefined;
+
+  if (!explicitTabId && !connection.tabGroup.hasOwnedTabs()) {
+    const tab = await connection.newTab(url);
+    return { content: [{ type: "text", text: `Navigated to: ${url}\ntabId=${tab.id}` }] };
+  }
+
+  const client = await connection.getClient(explicitTabId);
   const loadPromise = waitForLoad(client);
   await client.Page.navigate({ url });
   await loadPromise;

@@ -2,6 +2,7 @@ import CDP from "chrome-remote-interface";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import { nextAnimal, isAnimalName } from "./animal-sequence.js";
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
 const STATE_DIR = join(homedir(), ".local", "share", "chrome-agent-mcp");
 export class TabGroupManager {
@@ -9,7 +10,7 @@ export class TabGroupManager {
     stateFile;
     ownedTabIds = new Set();
     chromeGroupId = null;
-    groupName = "CLAUDE #1";
+    groupName = "";
     groupColor = GROUP_COLORS[Math.floor(Math.random() * GROUP_COLORS.length)];
     extensionClient = null;
     initPromise = null;
@@ -30,41 +31,12 @@ export class TabGroupManager {
         if (saved) {
             await this.restoreFromState(saved);
         }
-        else if (this.extensionClient) {
+        else {
             await this.discoverExistingGroup();
         }
     }
     async discoverExistingGroup() {
-        try {
-            const { result } = await this.extensionClient.Runtime.evaluate({
-                expression: `
-          (async () => {
-            const groups = await chrome.tabGroups.query({});
-            const claude = groups
-              .filter(g => /^(CLAUDE )?#\\d+/.test(g.title || ''))
-              .sort((a, b) => {
-                const na = parseInt((a.title.match(/#(\\d+)/) || ['','0'])[1], 10);
-                const nb = parseInt((b.title.match(/#(\\d+)/) || ['','0'])[1], 10);
-                return nb - na;
-              });
-            if (!claude.length) return null;
-            return JSON.stringify({ id: claude[0].id, title: claude[0].title, color: claude[0].color });
-          })()
-        `,
-                returnByValue: true,
-                awaitPromise: true,
-            });
-            if (result?.value) {
-                const g = JSON.parse(result.value);
-                this.chromeGroupId = g.id;
-                this.groupName = g.title;
-                this.groupColor = (GROUP_COLORS.includes(g.color) ? g.color : this.groupColor);
-                this.saveState();
-                return;
-            }
-        }
-        catch { }
-        this.groupName = await this.determineGroupName();
+        this.assignNewGroupIdentity();
     }
     loadState() {
         try {
@@ -98,21 +70,28 @@ export class TabGroupManager {
         catch { }
     }
     async restoreFromState(saved) {
-        this.groupColor = saved.groupColor;
         if (typeof saved.chromeGroupId !== "number")
             saved.chromeGroupId = null;
         const liveTabs = await this.fetchLivePageIds();
         const survivingIds = saved.ownedTabIds.filter(id => liveTabs.has(id));
         if (survivingIds.length === 0) {
-            this.groupName = this.extensionClient
-                ? await this.determineGroupName()
-                : (this.isValidGroupName(saved.groupName) ? saved.groupName : "CLAUDE #1");
+            if (this.isValidGroupName(saved.groupName)) {
+                this.groupName = saved.groupName;
+                this.groupColor = saved.groupColor;
+            }
+            else {
+                this.assignNewGroupIdentity();
+            }
             return;
         }
         survivingIds.forEach(id => this.ownedTabIds.add(id));
-        this.groupName = this.isValidGroupName(saved.groupName)
-            ? saved.groupName
-            : (this.extensionClient ? await this.determineGroupName() : "CLAUDE #1");
+        if (this.isValidGroupName(saved.groupName)) {
+            this.groupName = saved.groupName;
+            this.groupColor = saved.groupColor;
+        }
+        else {
+            this.assignNewGroupIdentity();
+        }
         const groupStillExists = saved.chromeGroupId !== null && this.extensionClient
             ? await this.chromeGroupExists(saved.chromeGroupId)
             : false;
@@ -151,7 +130,7 @@ export class TabGroupManager {
                         const client = await CDP({ target: target.id, port: this.debugPort });
                         await client.Runtime.enable();
                         const { result } = await client.Runtime.evaluate({
-                            expression: "typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined'",
+                            expression: "typeof self.__mcpLogEvent === 'function' && typeof chrome.tabGroups !== 'undefined'",
                             returnByValue: true,
                         });
                         if (result?.value === true)
@@ -167,33 +146,20 @@ export class TabGroupManager {
         return null;
     }
     isValidGroupName(name) {
-        return /^(CLAUDE )?#\d+/.test(name);
+        return isAnimalName(name);
     }
-    async determineGroupName() {
-        try {
-            const { result } = await this.extensionClient.Runtime.evaluate({
-                expression: `
-          (async () => {
-            const groups = await chrome.tabGroups.query({});
-            const nums = groups
-              .filter(g => /^(CLAUDE )?#\\d+/.test(g.title || ''))
-              .map(g => parseInt((g.title.match(/#(\\d+)/) || ['', '0'])[1], 10))
-              .filter(n => n > 0);
-            let n = 1; while (nums.includes(n)) n++;
-            return 'CLAUDE #' + n;
-          })()
-        `,
-                returnByValue: true,
-                awaitPromise: true,
-            });
-            const name = typeof result?.value === "string" && this.isValidGroupName(result.value)
-                ? result.value
-                : "CLAUDE #1";
-            return name;
-        }
-        catch {
-            return "CLAUDE #1";
-        }
+    assignNewGroupIdentity() {
+        const animal = nextAnimal();
+        this.groupName = animal.name;
+        this.groupColor = animal.chromeColor;
+    }
+    resetForNewSession() {
+        this.ownedTabIds.clear();
+        this.chromeGroupId = null;
+        this.initPromise = null;
+        this.extensionClient = null;
+        this.clearState();
+        this.assignNewGroupIdentity();
     }
     async addTab(cdpTabId) {
         await this.initialize();
@@ -201,6 +167,23 @@ export class TabGroupManager {
         this.addTabQueue = this.addTabQueue.then(() => this.tryAddToVisualGroup(cdpTabId));
         await this.addTabQueue;
         this.saveState();
+        if (this.chromeGroupId === null)
+            this.scheduleGroupRetry(cdpTabId);
+    }
+    scheduleGroupRetry(cdpTabId) {
+        const delays = [1500, 3000, 5000];
+        let attempt = 0;
+        const retry = async () => {
+            if (attempt >= delays.length || this.chromeGroupId !== null)
+                return;
+            this.extensionClient = null;
+            await this.tryAddToVisualGroup(cdpTabId);
+            this.saveState();
+            if (this.chromeGroupId === null)
+                setTimeout(retry, delays[attempt]);
+            attempt++;
+        };
+        setTimeout(retry, delays[0]);
     }
     async tryAddToVisualGroup(cdpTabId) {
         if (!this.extensionClient) {
@@ -232,9 +215,11 @@ export class TabGroupManager {
                 normalize(t.pendingUrl ?? "") === targetUrl) ?? chromeTabs[0];
             if (!match)
                 return;
-            const expression = this.chromeGroupId !== null
-                ? `chrome.tabs.group({ groupId: ${this.chromeGroupId}, tabIds: [${match.id}] })`
-                : `(async () => {
+            const knownId = this.chromeGroupId;
+            const expression = `(async () => {
+            ${knownId !== null ? `try {
+              return await chrome.tabs.group({ groupId: ${knownId}, tabIds: [${match.id}] });
+            } catch {}` : ""}
             const existing = await chrome.tabGroups.query({ title: ${JSON.stringify(this.groupName)} });
             const existingId = existing[0]?.id ?? null;
             const gid = await chrome.tabs.group(
@@ -286,6 +271,9 @@ export class TabGroupManager {
     getGroupNumber() {
         const match = this.groupName.match(/#(\d+)/);
         return match ? parseInt(match[1], 10) : 1;
+    }
+    getGroupColor() {
+        return this.groupColor;
     }
     async renameGroup(newTitle) {
         await this.initialize();

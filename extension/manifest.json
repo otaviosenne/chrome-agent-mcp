@@ -12,7 +12,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/popup.html",
     "default_title": "Claude MCP Dashboard",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -22,7 +22,8 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/worker.js",
+    "type": "module"
   },
   "content_scripts": [
     {

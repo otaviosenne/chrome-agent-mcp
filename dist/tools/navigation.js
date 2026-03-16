@@ -49,8 +49,13 @@ export const reloadToolDefinition = {
     inputSchema: { type: "object", properties: { ...TAB_ID_PROP } },
 };
 export async function handleNavigate(args, connection) {
-    const client = await connection.getClient(args.tabId);
     const url = args.url;
+    const explicitTabId = args.tabId;
+    if (!explicitTabId && !connection.tabGroup.hasOwnedTabs()) {
+        const tab = await connection.newTab(url);
+        return { content: [{ type: "text", text: `Navigated to: ${url}\ntabId=${tab.id}` }] };
+    }
+    const client = await connection.getClient(explicitTabId);
     const loadPromise = waitForLoad(client);
     await client.Page.navigate({ url });
     await loadPromise;

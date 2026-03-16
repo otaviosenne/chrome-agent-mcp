@@ -1,0 +1,70 @@
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #C87850;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(200, 120, 80, 0.6);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.pulse-dot-idle {
+  animation: none;
+  opacity: 0.25;
+}
+
+.chevron {
+  color: #5a5550;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.chevron-up {
+  transform: rotate(180deg);
+}
+
+.nav-tab {
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.dropdown-trigger {
+  transition: border-color 0.15s;
+}
+
+.dropdown-item {
+  transition: background 0.1s;
+}
+
+.event-item {
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.hb-group-header {
+  transition: background 0.12s;
+}
+
+.screenshot-thumb {
+  transition: border-color 0.15s, transform 0.12s;
+}
+
+.screenshot-thumb:hover {
+  border-color: #C87850;
+  transform: scale(1.02);
+}
+
+.screenshot-copy-btn {
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+#copy-btn {
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+#clear-btn {
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}

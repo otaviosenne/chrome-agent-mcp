@@ -2,10 +2,10 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { ChromeConnection } from "./chrome-connection.js";
-import { TabFaviconManager } from "./tab-favicon-manager.js";
-import { ExtensionBridge } from "./extension-bridge.js";
-import { generateDescription, generateTabVerb } from "./description-generator.js";
+import { ChromeConnection } from "./core/connection.js";
+import { TabFaviconManager } from "./core/favicon.js";
+import { ExtensionBridge } from "./core/bridge.js";
+import { generateDescription, generateTabVerb } from "./utils/description.js";
 import { ToolResult } from "./types.js";
 
 import { tabsToolDefinition, handleTabs } from "./tools/tabs.js";
@@ -14,16 +14,17 @@ import {
   navigateForwardToolDefinition, reloadToolDefinition,
   handleNavigate, handleNavigateBack, handleNavigateForward, handleReload,
 } from "./tools/navigation.js";
-import { snapshotToolDefinition, handleSnapshot } from "./tools/snapshot.js";
-import { screenshotToolDefinition, handleScreenshot } from "./tools/screenshot.js";
-import { evaluateToolDefinition, handleEvaluate } from "./tools/evaluate.js";
+import {
+  snapshotToolDefinition, screenshotToolDefinition, evaluateToolDefinition,
+  handleSnapshot, handleScreenshot, handleEvaluate,
+} from "./tools/media.js";
 import {
   clickToolDefinition, typeToolDefinition, hoverToolDefinition,
   pressKeyToolDefinition, scrollToolDefinition, selectOptionToolDefinition,
   fillFormToolDefinition, waitForToolDefinition,
   handleClick, handleType, handleHover, handlePressKey,
   handleScroll, handleSelectOption, handleFillForm, handleWaitFor,
-} from "./tools/interaction.js";
+} from "./tools/interaction/index.js";
 import { devtoolsConsoleToolDefinition, handleDevtoolsConsole } from "./tools/devtools/console.js";
 import { devtoolsNetworkToolDefinition, handleDevtoolsNetwork } from "./tools/devtools/network.js";
 import { devtoolsElementsToolDefinition, handleDevtoolsElements } from "./tools/devtools/elements.js";
@@ -32,12 +33,30 @@ import {
   chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition,
   handleChromeWindows, handleChromeFocus, handleChromeExtensions,
 } from "./tools/browser.js";
-import { sessionSyncToolDefinition, handleSessionSync } from "./tools/session.js";
+import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, renameClaudeSession, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
+import { executeResilient, openFallbackGroup } from "./core/resilience.js";
 
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
 const faviconManager = new TabFaviconManager();
 const bridge = new ExtensionBridge(DEBUG_PORT);
+
+let lastSyncedSessionPath: string | null = null;
+
+async function autoSyncOnce(): Promise<void> {
+  const currentPath = getCurrentSessionPath();
+  if (!currentPath || currentPath === lastSyncedSessionPath) return;
+  lastSyncedSessionPath = currentPath;
+  connection.tabGroup.resetForNewSession();
+  await connection.tabGroup.initialize();
+  const name = connection.tabGroup.getGroupName();
+  const color = connection.tabGroup.getGroupColor();
+  const currentTitle = getCurrentSessionTitle();
+  if (currentTitle !== name) {
+    renameClaudeSession(name);
+    writeAutoSync(name, color);
+  }
+}
 
 const toolHandlers: Record<string, (args: Record<string, unknown>, conn: ChromeConnection) => Promise<ToolResult>> = {
   browser_tabs: handleTabs,
@@ -88,6 +107,25 @@ const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: allTools }));
 
+const IDEMPOTENT_TOOLS = new Set([
+  "browser_snapshot",
+  "browser_take_screenshot",
+  "browser_evaluate",
+  "devtools_console",
+  "devtools_network",
+  "devtools_elements",
+  "devtools_storage",
+  "chrome_windows",
+  "chrome_extensions",
+  "session_sync",
+]);
+
+function isIdempotentCall(name: string, args: Record<string, unknown>): boolean {
+  if (IDEMPOTENT_TOOLS.has(name)) return true;
+  if (name === "browser_tabs" && args.action === "list") return true;
+  return false;
+}
+
 const SKIP_FAVICON_ACTIONS = new Set(["list", "close", "switch", "done"]);
 const NAVIGATION_TOOLS = new Set(["browser_navigate", "browser_navigate_back", "browser_navigate_forward", "browser_reload"]);
 const STOP_DELAY_MS = 25000;
@@ -128,6 +166,7 @@ function extractScreenshot(result: any): string | undefined {
 const SKIP_BRIDGE_ACTIONS = new Set(["list", "switch"]);
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  await autoSyncOnce();
   const { name, arguments: args = {} } = request.params;
   const handler = toolHandlers[name];
 
@@ -177,13 +216,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   try {
-    const result = (await handler(args as Record<string, unknown>, connection)) as any;
+    const isIdempotent = isIdempotentCall(name, args as Record<string, unknown>);
+    const result = (await executeResilient(
+      () => handler(args as Record<string, unknown>, connection),
+      isIdempotent,
+      () => openFallbackGroup(connection)
+    )) as any;
 
-    if (isTabsNew) {
-      const newTabId = extractNewTabId(result);
-      if (newTabId) {
-        faviconManager.startActivityAfterLoad(newTabId, connection);
-        bridge.log({ type: "tab_open", tool: "browser_tabs:new", tabId: newTabId, groupName, description: generateDescription("browser_tabs:new", args), tabVerb: generateTabVerb("browser_tabs:new", args) });
+    const createdTabId = extractNewTabId(result);
+    if (createdTabId && (isTabsNew || name === "browser_navigate")) {
+      faviconManager.startActivityAfterLoad(createdTabId, connection);
+      bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: connection.tabGroup.getGroupName(), description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
+      const groupName = connection.tabGroup.getGroupName();
+      if (getCurrentSessionTitle() !== groupName) {
+        writeAutoSync(groupName, connection.tabGroup.getGroupColor());
       }
     }
 
@@ -217,5 +263,6 @@ await server.connect(transport);
 const sendHeartbeat = () => {
   bridge.log({ type: "session_alive", tool: "heartbeat", groupName: connection.tabGroup.getGroupName() });
 };
+bridge.setOnConnected(sendHeartbeat);
 sendHeartbeat();
 setInterval(sendHeartbeat, 15000);
