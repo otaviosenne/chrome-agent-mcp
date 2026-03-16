@@ -46,6 +46,34 @@ describe("generateDescription", () => {
   });
 });
 
+describe("generateDescription - domain coverage", () => {
+  it("maps claude.ai to 'claude'", () => {
+    const result = generateDescription("browser_navigate", { url: "https://claude.ai/chat" });
+    expect(result).toContain("claude");
+  });
+
+  it("maps stackoverflow.com to 'stackoverflow'", () => {
+    const result = generateDescription("browser_navigate", { url: "https://stackoverflow.com/questions/1" });
+    expect(result).toContain("stackoverflow");
+  });
+
+  it("maps x.com to 'twitter'", () => {
+    const result = generateDescription("browser_navigate", { url: "https://x.com/user" });
+    expect(result).toContain("twitter");
+  });
+
+  it("uses second-to-last part of unknown domain", () => {
+    const result = generateDescription("browser_navigate", { url: "https://myapp.example.io/home" });
+    expect(result).toContain("example");
+  });
+
+  it("combines verb and domain in result", () => {
+    const result = generateDescription("browser_navigate", { url: "https://github.com/user/repo/settings" });
+    expect(result).toContain("github");
+    expect(result).toContain("configurando");
+  });
+});
+
 describe("generateTabVerb", () => {
   it("returns non-empty string for browser_navigate", () => {
     const result = generateTabVerb("browser_navigate", {}, "https://github.com");

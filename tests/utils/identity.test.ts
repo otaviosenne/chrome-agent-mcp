@@ -94,6 +94,24 @@ describe("VALID_CLAUDE_COLORS", () => {
   });
 });
 
+describe("claudeToChrome - all shared colors round-trip", () => {
+  const shared = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"];
+  for (const color of shared) {
+    it(`claudeToChrome("${color}") === "${color}"`, () => {
+      expect(claudeToChrome(color)).toBe(color);
+    });
+  }
+});
+
+describe("chromeToClaude - all shared colors round-trip", () => {
+  const shared = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"];
+  for (const color of shared) {
+    it(`chromeToClaude("${color}") === "${color}"`, () => {
+      expect(chromeToClaude(color)).toBe(color);
+    });
+  }
+});
+
 describe("nextAnimal", () => {
   it("returns an object with name and chromeColor", () => {
     const animal = nextAnimal();
