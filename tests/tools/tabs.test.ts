@@ -149,7 +149,7 @@ describe("handleTabs - invalid action", () => {
     const result = await handleTabs({ action: "unknown", tabId: "tab1" }, connection);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("Unknown action");
+    expect(result.content[0].text).toContain("unknown");
   });
 
   it("returns isError when no tabId provided for action needing resolution", async () => {

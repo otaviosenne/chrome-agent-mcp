@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChromeConnection } from "../../src/core/connection.js";
 import {
   handleNavigate,
@@ -6,6 +6,9 @@ import {
   handleNavigateForward,
   handleReload,
 } from "../../src/tools/navigation.js";
+
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 function createMockClient(overrides: Partial<any> = {}): any {
   return {
@@ -81,7 +84,9 @@ describe("handleNavigate", () => {
       },
     });
 
-    const result = await handleNavigate({ url: "https://example.com" }, connection);
+    const p = handleNavigate({ url: "https://example.com" }, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(mockClient.Page.navigate).toHaveBeenCalledWith({ url: "https://example.com" });
     expect(result.isError).toBeUndefined();
@@ -101,7 +106,9 @@ describe("handleNavigate", () => {
       },
     });
 
-    const result = await handleNavigate({ url: "https://google.com" }, connection);
+    const p = handleNavigate({ url: "https://google.com" }, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(connection.newTab).toHaveBeenCalledWith("https://google.com");
     expect(result.content[0].text).toContain("https://google.com");
@@ -118,7 +125,9 @@ describe("handleNavigate", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const result = await handleNavigate({ url: "https://example.com" }, connection);
+    const p = handleNavigate({ url: "https://example.com" }, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(result.content[0].text).toContain("My Page Title");
   });
@@ -136,7 +145,9 @@ describe("handleNavigateBack", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const result = await handleNavigateBack({}, connection);
+    const p = handleNavigateBack({}, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(mockClient.Page.goBack).toHaveBeenCalled();
     expect(result.isError).toBeUndefined();
@@ -145,7 +156,9 @@ describe("handleNavigateBack", () => {
 
   it("passes tabId to getClient", async () => {
     const connection = createMockConnection();
-    await handleNavigateBack({ tabId: "tab2" }, connection);
+    const p = handleNavigateBack({ tabId: "tab2" }, connection);
+    await vi.runAllTimersAsync();
+    await p;
 
     expect(connection.getClient).toHaveBeenCalledWith("tab2");
   });
@@ -163,7 +176,9 @@ describe("handleNavigateForward", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const result = await handleNavigateForward({}, connection);
+    const p = handleNavigateForward({}, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(mockClient.Page.goForward).toHaveBeenCalled();
     expect(result.isError).toBeUndefined();
@@ -178,7 +193,9 @@ describe("handleReload", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const result = await handleReload({}, connection);
+    const p = handleReload({}, connection);
+    await vi.runAllTimersAsync();
+    const result = await p;
 
     expect(mockClient.Page.reload).toHaveBeenCalled();
     expect(result.isError).toBeUndefined();
@@ -187,7 +204,9 @@ describe("handleReload", () => {
 
   it("passes tabId to getClient", async () => {
     const connection = createMockConnection();
-    await handleReload({ tabId: "tab1" }, connection);
+    const p = handleReload({ tabId: "tab1" }, connection);
+    await vi.runAllTimersAsync();
+    await p;
 
     expect(connection.getClient).toHaveBeenCalledWith("tab1");
   });
