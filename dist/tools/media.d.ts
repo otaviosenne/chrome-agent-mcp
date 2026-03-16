@@ -1,0 +1,9 @@
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { ChromeConnection } from "../core/connection.js";
+import { ToolResult } from "../types.js";
+export declare const screenshotToolDefinition: Tool;
+export declare const snapshotToolDefinition: Tool;
+export declare const evaluateToolDefinition: Tool;
+export declare function handleScreenshot(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleSnapshot(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleEvaluate(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;

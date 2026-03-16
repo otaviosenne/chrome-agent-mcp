@@ -105,8 +105,8 @@ export class TabGroupManager {
     this.chromeGroupId = null;
     this.initPromise = null;
     this.extensionClient = null;
-    this.store.clearState(this.groupName, this.groupColor);
     this.assignNewGroupIdentity();
+    this.store.clearState(this.groupName, this.groupColor);
   }
 
   async addTab(cdpTabId: string): Promise<void> {

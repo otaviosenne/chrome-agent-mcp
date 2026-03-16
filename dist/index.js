@@ -2,23 +2,21 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { ChromeConnection } from "./chrome-connection.js";
-import { TabFaviconManager } from "./tab-favicon-manager.js";
-import { ExtensionBridge } from "./extension-bridge.js";
-import { generateDescription, generateTabVerb } from "./description-generator.js";
+import { ChromeConnection } from "./core/connection.js";
+import { TabFaviconManager } from "./core/favicon.js";
+import { ExtensionBridge } from "./core/bridge.js";
+import { generateDescription, generateTabVerb } from "./utils/description.js";
 import { tabsToolDefinition, handleTabs } from "./tools/tabs.js";
 import { navigateToolDefinition, navigateBackToolDefinition, navigateForwardToolDefinition, reloadToolDefinition, handleNavigate, handleNavigateBack, handleNavigateForward, handleReload, } from "./tools/navigation.js";
-import { snapshotToolDefinition, handleSnapshot } from "./tools/snapshot.js";
-import { screenshotToolDefinition, handleScreenshot } from "./tools/screenshot.js";
-import { evaluateToolDefinition, handleEvaluate } from "./tools/evaluate.js";
-import { clickToolDefinition, typeToolDefinition, hoverToolDefinition, pressKeyToolDefinition, scrollToolDefinition, selectOptionToolDefinition, fillFormToolDefinition, waitForToolDefinition, handleClick, handleType, handleHover, handlePressKey, handleScroll, handleSelectOption, handleFillForm, handleWaitFor, } from "./tools/interaction.js";
+import { snapshotToolDefinition, screenshotToolDefinition, evaluateToolDefinition, handleSnapshot, handleScreenshot, handleEvaluate, } from "./tools/media.js";
+import { clickToolDefinition, typeToolDefinition, hoverToolDefinition, pressKeyToolDefinition, scrollToolDefinition, selectOptionToolDefinition, fillFormToolDefinition, waitForToolDefinition, handleClick, handleType, handleHover, handlePressKey, handleScroll, handleSelectOption, handleFillForm, handleWaitFor, } from "./tools/interaction/index.js";
 import { devtoolsConsoleToolDefinition, handleDevtoolsConsole } from "./tools/devtools/console.js";
 import { devtoolsNetworkToolDefinition, handleDevtoolsNetwork } from "./tools/devtools/network.js";
 import { devtoolsElementsToolDefinition, handleDevtoolsElements } from "./tools/devtools/elements.js";
 import { devtoolsStorageToolDefinition, handleDevtoolsStorage } from "./tools/devtools/storage.js";
 import { chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition, handleChromeWindows, handleChromeFocus, handleChromeExtensions, } from "./tools/browser.js";
 import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, renameClaudeSession, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
-import { executeResilient, openFallbackGroup } from "./tool-resilience.js";
+import { executeResilient, openFallbackGroup } from "./core/resilience.js";
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
 const faviconManager = new TabFaviconManager();
@@ -33,6 +31,8 @@ async function autoSyncOnce() {
     await connection.tabGroup.initialize();
     const name = connection.tabGroup.getGroupName();
     const color = connection.tabGroup.getGroupColor();
+    if (!name)
+        return;
     const currentTitle = getCurrentSessionTitle();
     if (currentTitle !== name) {
         renameClaudeSession(name);

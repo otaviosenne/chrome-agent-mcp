@@ -1,7 +1,7 @@
 import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../color-mapper.js";
+import { claudeToChrome, chromeToClaude, VALID_CLAUDE_COLORS } from "../utils/identity.js";
 export const sessionSyncToolDefinition = {
     name: "session_sync",
     description: "Sync Claude session name/color with Chrome tab group. " +
@@ -93,6 +93,8 @@ export function renameClaudeSession(newTitle) {
     }
 }
 export function writeAutoSync(groupName, groupColor) {
+    if (!groupName)
+        return;
     try {
         const claudeDir = join(homedir(), ".claude");
         const claudeColor = chromeToClaude(groupColor) ?? "default";

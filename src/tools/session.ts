@@ -96,6 +96,7 @@ export function renameClaudeSession(newTitle: string): boolean {
 }
 
 export function writeAutoSync(groupName: string, groupColor: string): void {
+  if (!groupName) return;
   try {
     const claudeDir = join(homedir(), ".claude");
     const claudeColor = chromeToClaude(groupColor) ?? "default";

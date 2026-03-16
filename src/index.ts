@@ -51,6 +51,7 @@ async function autoSyncOnce(): Promise<void> {
   await connection.tabGroup.initialize();
   const name = connection.tabGroup.getGroupName();
   const color = connection.tabGroup.getGroupColor();
+  if (!name) return;
   const currentTitle = getCurrentSessionTitle();
   if (currentTitle !== name) {
     renameClaudeSession(name);

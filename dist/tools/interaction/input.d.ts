@@ -1,0 +1,11 @@
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { ChromeConnection } from "../../core/connection.js";
+import { ToolResult } from "../../types.js";
+export declare const clickToolDefinition: Tool;
+export declare const typeToolDefinition: Tool;
+export declare const hoverToolDefinition: Tool;
+export declare const pressKeyToolDefinition: Tool;
+export declare function handleClick(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleType(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handleHover(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function handlePressKey(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;

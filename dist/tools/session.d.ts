@@ -1,4 +1,4 @@
-import { ChromeConnection } from "../chrome-connection.js";
+import { ChromeConnection } from "../core/connection.js";
 import { ToolResult } from "../types.js";
 export declare const sessionSyncToolDefinition: {
     name: string;
