@@ -10,9 +10,21 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
-  "keywords": ["mcp", "chrome", "browser", "automation", "claude", "ai", "devtools", "playwright"],
+  "keywords": [
+    "mcp",
+    "chrome",
+    "browser",
+    "automation",
+    "claude",
+    "ai",
+    "devtools",
+    "playwright"
+  ],
   "author": "Otavio Senne <otavio.senne@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -29,6 +41,8 @@
   "devDependencies": {
     "@types/chrome-remote-interface": "^0.33.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@vitest/coverage-v8": "^4.1.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.0"
   }
 }
