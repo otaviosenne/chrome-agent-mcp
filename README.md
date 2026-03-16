@@ -1,47 +1,70 @@
+<div align="center">
+
 # chrome-agent-mcp
 
-MCP server for Chrome — gives Claude (or any MCP client) full control over your browser: multi-tab parallel execution, DevTools inspection, tab groups, screenshot capture, and a real-time dashboard via a companion Chrome extension.
+**Full Chrome control for AI agents via the Model Context Protocol**
 
-## Features
+[![npm](https://img.shields.io/npm/v/chrome-agent-mcp)](https://www.npmjs.com/package/chrome-agent-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 
-- **Multi-tab parallel control** — open, switch, and operate multiple tabs simultaneously
-- **Full browser automation** — click, type, scroll, fill forms, press keys, hover
-- **DevTools access** — console logs, network requests, DOM elements, storage inspection
-- **Tab groups** — isolate work into named groups (`CLAUDE #1`, `CLAUDE #2`, ...)
-- **Live favicon animation** — tabs show a blinking Claude robot while the agent is active
-- **Real-time dashboard** — companion extension shows active tabs, event log, and screenshots
-- **Chrome window management** — list windows, focus specific windows, inspect extensions
+Give Claude (or any MCP client) full control over your browser: navigate pages,
+click elements, fill forms, inspect DevTools — with parallel tab execution,
+session isolation per agent, and a real-time dashboard.
+
+</div>
+
+---
+
+## What it does
+
+Each Claude session gets its **own Chrome tab group** — so multiple agents can
+run in parallel without stepping on each other. A companion Chrome extension
+shows a live dashboard: active tabs, event log, and screenshots in real time.
+
+```
+Claude session A  →  tab group "Pinguim"  (blue)
+Claude session B  →  tab group "Fenix"   (red)
+Claude session C  →  tab group "Girafa"  (yellow)
+```
+
+Every tool call is wrapped with **resilient execution**:
+- 20 s primary timeout
+- 2× parallel retries on timeout (10 s each)
+- Automatic fallback to a new Chrome group if all retries fail
+
+---
 
 ## Requirements
 
-- Node.js 18+
-- Google Chrome (with remote debugging enabled)
+- **Node.js** ≥ 18
+- **Google Chrome** with remote debugging enabled
+
+---
 
 ## Installation
 
-### 1. Start Chrome with remote debugging
+### 1. Enable Chrome remote debugging
 
 ```bash
 google-chrome --remote-debugging-port=9222
 ```
 
-Or add it to your Chrome shortcut/launcher permanently.
+To make it permanent, add the flag to your Chrome launcher or `.desktop` file.
 
 ### 2. Install the MCP server
 
 ```bash
+# Run directly (no install)
 npx chrome-agent-mcp
-```
 
-Or install globally:
-
-```bash
+# Or install globally
 npm install -g chrome-agent-mcp
 ```
 
-### 3. Add to your MCP client config
+### 3. Configure your MCP client
 
-For Claude Desktop (`claude_desktop_config.json`):
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -49,15 +72,13 @@ For Claude Desktop (`claude_desktop_config.json`):
     "chrome-agent-mcp": {
       "command": "npx",
       "args": ["chrome-agent-mcp"],
-      "env": {
-        "CHROME_DEBUG_PORT": "9222"
-      }
+      "env": { "CHROME_DEBUG_PORT": "9222" }
     }
   }
 }
 ```
 
-For Claude Code (`.claude/settings.json`):
+**Claude Code** (`.claude/settings.json`):
 
 ```json
 {
@@ -65,55 +86,143 @@ For Claude Code (`.claude/settings.json`):
     "chrome-agent-mcp": {
       "command": "node",
       "args": ["/path/to/chrome-agent-mcp/dist/index.js"],
-      "env": {
-        "CHROME_DEBUG_PORT": "9222"
-      }
+      "env": { "CHROME_DEBUG_PORT": "9222" }
     }
   }
 }
 ```
 
-### 4. Install the companion extension (optional but recommended)
+### 4. Install the companion extension *(optional but recommended)*
 
-1. Open Chrome → `chrome://extensions/`
+1. Open `chrome://extensions/`
 2. Enable **Developer mode**
 3. Click **Load unpacked** → select the `extension/` folder
 
-The extension adds a popup dashboard showing active tabs, agent events, and captured screenshots in real time.
+The extension adds a popup dashboard showing which tabs are active, what the
+agent is doing, and captured screenshots — all updating in real time.
+
+---
 
 ## Available Tools
 
+### Navigation
+
 | Tool | Description |
 |------|-------------|
-| `browser_tabs` | Open, close, switch, list, and group tabs |
 | `browser_navigate` | Navigate to a URL |
-| `browser_navigate_back` / `browser_navigate_forward` | Browser history navigation |
+| `browser_navigate_back` | Go back in browser history |
+| `browser_navigate_forward` | Go forward in browser history |
 | `browser_reload` | Reload the current tab |
-| `browser_snapshot` | Get the accessibility tree of the page |
-| `browser_take_screenshot` | Capture a screenshot |
-| `browser_evaluate` | Execute JavaScript in the page |
-| `browser_click` | Click an element |
-| `browser_type` | Type text into an element |
+
+### Interaction
+
+| Tool | Description |
+|------|-------------|
+| `browser_click` | Click an element by accessibility ref |
+| `browser_type` | Type text into a focused element |
 | `browser_hover` | Hover over an element |
-| `browser_press_key` | Press a keyboard key |
-| `browser_scroll` | Scroll the page |
-| `browser_select_option` | Select a dropdown option |
+| `browser_press_key` | Press a keyboard key or shortcut |
+| `browser_scroll` | Scroll the page or an element |
+| `browser_select_option` | Select a `<select>` dropdown option |
 | `browser_fill_form` | Fill multiple form fields at once |
 | `browser_wait_for` | Wait for an element or condition |
-| `devtools_console` | Read browser console logs |
-| `devtools_network` | Inspect network requests |
-| `devtools_elements` | Inspect DOM elements |
-| `devtools_storage` | Read cookies, localStorage, sessionStorage |
-| `chrome_windows` | List all Chrome windows |
-| `chrome_focus` | Focus a specific window |
-| `chrome_extensions` | List installed extensions |
 
-## Environment Variables
+### Page Inspection
+
+| Tool | Description |
+|------|-------------|
+| `browser_snapshot` | Get the accessibility tree of the page |
+| `browser_take_screenshot` | Capture a full-page screenshot |
+| `browser_evaluate` | Execute JavaScript and return the result |
+
+### Tab Management
+
+| Tool | Description |
+|------|-------------|
+| `browser_tabs` | Open, close, switch, list, and mark tabs done |
+
+### DevTools
+
+| Tool | Description |
+|------|-------------|
+| `devtools_console` | Read and clear browser console logs |
+| `devtools_network` | Inspect network requests and responses |
+| `devtools_elements` | Inspect and query DOM elements |
+| `devtools_storage` | Read cookies, localStorage, sessionStorage |
+
+### Browser Management
+
+| Tool | Description |
+|------|-------------|
+| `chrome_windows` | List all open Chrome windows |
+| `chrome_focus` | Focus a specific window |
+| `chrome_extensions` | List installed Chrome extensions |
+| `session_sync` | Sync session state with the extension dashboard |
+
+---
+
+## Architecture
+
+```
+src/
+├── index.ts              MCP server + request dispatch
+├── types.ts              Shared type definitions
+├── core/                 Infrastructure layer
+│   ├── connection.ts     Chrome CDP connection lifecycle
+│   ├── bridge.ts         Extension event bridge
+│   ├── favicon.ts        Tab favicon animation manager
+│   ├── resilience.ts     Timeout / retry / fallback execution
+│   └── groups/           Tab group isolation
+│       ├── manager.ts    Orchestrator (public API)
+│       ├── state.ts      File-based state persistence
+│       └── chrome-api.ts Chrome Extension API bridge
+├── tools/                MCP tool implementations
+│   ├── tabs.ts
+│   ├── navigation.ts
+│   ├── browser.ts
+│   ├── media.ts          screenshot · snapshot · evaluate
+│   ├── session.ts
+│   ├── interaction/      click · type · hover · scroll · form · wait
+│   └── devtools/         console · network · elements · storage
+└── utils/                Pure utility functions
+    ├── accessibility.ts  AX tree formatter
+    ├── description.ts    Tab action labels
+    └── identity.ts       Animal names + Chrome group colors
+```
+
+**Engineering rules:** every file ≤ 300 lines · every directory ≤ 7 items · SOLID principles throughout.
+
+---
+
+## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CHROME_DEBUG_PORT` | `9222` | Chrome remote debugging port |
 
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Watch mode
+npm run dev
+
+# Run tests
+npm test
+
+# Coverage report (target: 80%)
+npm run coverage
+```
+
+---
+
 ## License
 
-MIT
+MIT © [Otavio Senne](https://github.com/otaviosenne)
