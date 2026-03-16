@@ -28,25 +28,11 @@
   transform: rotate(180deg);
 }
 
-.nav-tab {
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.dropdown-trigger {
-  transition: border-color 0.15s;
-}
-
-.dropdown-item {
-  transition: background 0.1s;
-}
-
-.event-item {
-  transition: background 0.12s, border-color 0.12s;
-}
-
-.hb-group-header {
-  transition: background 0.12s;
-}
+.nav-tab { transition: color 0.15s, border-color 0.15s; }
+.dropdown-trigger { transition: border-color 0.15s; }
+.dropdown-item { transition: background 0.1s; }
+.event-item { transition: background 0.12s, border-color 0.12s; }
+.hb-group-header { transition: background 0.12s; }
 
 .screenshot-thumb {
   transition: border-color 0.15s, transform 0.12s;
@@ -57,14 +43,167 @@
   transform: scale(1.02);
 }
 
+.screenshot-copy-btn { transition: opacity 0.15s, color 0.15s, background 0.15s; }
+#copy-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
+#clear-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
+
+.hb-group-item {
+  background: #111113;
+  border: 1px solid rgba(100, 140, 200, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.hb-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.hb-group-header:hover {
+  background: rgba(100, 140, 200, 0.05);
+}
+
+.hb-group-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.hb-group-count {
+  font-size: 11px;
+  color: #5a6070;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hb-sessions {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.hb-session-tag {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 9px;
+  color: #6488c8;
+  background: rgba(100, 140, 200, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+.hb-detail {
+  border-top: 1px solid rgba(100, 140, 200, 0.1);
+  padding: 5px 12px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hb-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.hb-detail-session {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 9px;
+  color: #6488c8;
+  opacity: 0.75;
+  flex-shrink: 0;
+  width: 56px;
+}
+
+.hb-detail-group {
+  font-size: 10px;
+  color: #4a4e58;
+  flex: 1;
+}
+
+.hb-detail-time {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 9px;
+  color: #3a3e48;
+  flex-shrink: 0;
+}
+
+.screenshot-wrapper {
+  position: relative;
+}
+
+.screenshot-thumb {
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.05);
+  aspect-ratio: 16/9;
+  background: #161618;
+}
+
+.screenshot-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .screenshot-copy-btn {
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(14, 14, 15, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #9a9088;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 7px;
+  opacity: 0;
+  backdrop-filter: blur(4px);
+  z-index: 10;
 }
 
-#copy-btn {
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+.screenshot-wrapper:hover .screenshot-copy-btn {
+  opacity: 1;
 }
 
-#clear-btn {
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+.screenshot-copy-btn:hover {
+  color: #60a8e0;
+  background: rgba(80, 160, 220, 0.15);
+  border-color: rgba(80, 160, 220, 0.35);
+}
+
+.empty-screenshots {
+  grid-column: 1 / -1;
+  padding: 36px 0;
+  color: #3a3530;
+  font-style: italic;
+  text-align: center;
+  font-size: 12px;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(4px);
+}
+
+#modal-img {
+  position: relative;
+  max-width: 95%;
+  max-height: 95%;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  object-fit: contain;
 }

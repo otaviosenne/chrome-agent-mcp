@@ -277,32 +277,5 @@ nav {
   border-radius: 4px;
 }
 
-#event-list {
-  padding: 8px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-#screenshot-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 14px 18px;
-}
-
-#modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#modal[hidden] {
-  display: none;
-}
-
 @import "./components.css";
 @import "./animations.css";
