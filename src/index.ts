@@ -233,14 +233,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       faviconManager.startActivityAfterLoad(createdTabId, connection);
       scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
       bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: createdGroupName, description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
-      if (getCurrentSessionTitle() !== createdGroupName) {
-        renameClaudeSession(createdGroupName);
-        const groupColor = connection.tabGroup.getGroupColor();
-        writeAutoSync(createdGroupName, groupColor);
-        const claudeColor = chromeToClaude(groupColor) ?? "default";
-        if (result?.content?.[0]?.type === "text") {
-          result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
-        }
+      const groupColor = connection.tabGroup.getGroupColor();
+      writeAutoSync(createdGroupName, groupColor);
+      const claudeColor = chromeToClaude(groupColor) ?? "default";
+      if (result?.content?.[0]?.type === "text") {
+        result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
       }
     }
 
