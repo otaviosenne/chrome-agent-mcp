@@ -16,19 +16,19 @@ export function formatTime(timestamp) {
 
 function aliveGroupNames() {
   const aliveSet = new Set(state.aliveSessions);
+  if (aliveSet.size === 0) return new Set();
+
   const names = new Set();
 
   for (const groupTitle of Object.keys(state.chromeGroups)) {
     const sessionId = state.groups[groupTitle];
-    if (!sessionId || aliveSet.size === 0 || aliveSet.has(sessionId)) {
+    if (!sessionId || aliveSet.has(sessionId)) {
       names.add(groupTitle);
     }
   }
 
-  if (aliveSet.size > 0) {
-    for (const [groupTitle, sessionId] of Object.entries(state.groups)) {
-      if (aliveSet.has(sessionId)) names.add(groupTitle);
-    }
+  for (const [groupTitle, sessionId] of Object.entries(state.groups)) {
+    if (aliveSet.has(sessionId)) names.add(groupTitle);
   }
 
   return names;

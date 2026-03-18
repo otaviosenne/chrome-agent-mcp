@@ -27,6 +27,7 @@ export class TabGroupManager {
         return this.initPromise;
     }
     async doInitialize() {
+        GroupStateStore.cleanupDeadProcessFiles();
         this.extensionClient = await this.api.findExtensionClient();
         const saved = this.store.loadState();
         if (saved) {
@@ -35,6 +36,10 @@ export class TabGroupManager {
         else {
             this.assignNewGroupIdentity();
         }
+        const cleanup = () => this.store.deleteState();
+        process.once("exit", cleanup);
+        process.once("SIGINT", () => { cleanup(); process.exit(0); });
+        process.once("SIGTERM", () => { cleanup(); process.exit(0); });
     }
     async restoreFromState(saved) {
         if (typeof saved.chromeGroupId !== "number")
@@ -87,13 +92,16 @@ export class TabGroupManager {
             ownedTabIds: Array.from(this.ownedTabIds),
         });
     }
-    resetForNewSession() {
+    async resetForNewSession() {
+        if (this.chromeGroupId !== null && this.extensionClient) {
+            await this.api.ungroupChromeTabs(this.chromeGroupId, this.extensionClient);
+        }
         this.ownedTabIds.clear();
         this.chromeGroupId = null;
         this.initPromise = null;
         this.extensionClient = null;
+        this.store.deleteState();
         this.assignNewGroupIdentity();
-        this.store.clearState(this.groupName, this.groupColor);
     }
     async addTab(cdpTabId) {
         await this.initialize();
@@ -137,7 +145,7 @@ export class TabGroupManager {
     removeTab(tabId) {
         this.ownedTabIds.delete(tabId);
         if (this.ownedTabIds.size === 0) {
-            this.store.clearState(this.groupName, this.groupColor);
+            this.store.deleteState();
         }
         else {
             this.persistState();

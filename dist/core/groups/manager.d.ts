@@ -16,7 +16,7 @@ export declare class TabGroupManager {
     private fetchLivePageIds;
     private assignNewGroupIdentity;
     private persistState;
-    resetForNewSession(): void;
+    resetForNewSession(): Promise<void>;
     addTab(cdpTabId: string): Promise<void>;
     private scheduleGroupRetry;
     private tryAddToVisualGroup;

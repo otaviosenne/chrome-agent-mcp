@@ -10,5 +10,6 @@ export declare class GroupStateStore {
     constructor(stateFile: string);
     loadState(): PersistedState | null;
     saveState(state: PersistedState): void;
-    clearState(groupName: string, groupColor: string): void;
+    deleteState(): void;
+    static cleanupDeadProcessFiles(): void;
 }

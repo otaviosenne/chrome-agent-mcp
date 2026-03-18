@@ -31,6 +31,19 @@ export class GroupChromeApi {
         }
         return null;
     }
+    async ungroupChromeTabs(chromeGroupId, extensionClient) {
+        try {
+            await extensionClient.Runtime.evaluate({
+                expression: `(async () => {
+          const tabs = await chrome.tabs.query({ groupId: ${chromeGroupId} });
+          if (tabs.length > 0) await chrome.tabs.ungroup(tabs.map(t => t.id));
+        })()`,
+                returnByValue: true,
+                awaitPromise: true,
+            });
+        }
+        catch { }
+    }
     async chromeGroupExists(groupId, client) {
         try {
             const { result } = await client.Runtime.evaluate({

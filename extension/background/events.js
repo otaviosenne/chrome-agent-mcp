@@ -11,6 +11,7 @@ import {
   initState,
   SESSION_TTL_MS,
 } from "./commands.js";
+import { setRobotIcon } from "./icon.js";
 
 const ANIMAL_NAMES = ["Pinguim","Fenix","Girafa","Papagaio","Pantera","Polvo","Peixe","Capivara"];
 
@@ -92,6 +93,7 @@ export function registerEventListeners() {
 
     if (port.name === "popup") {
       popupPorts.push(port);
+      setRobotIcon(false);
       port.onDisconnect.addListener(() => {
         setPopupPorts(popupPorts.filter(p => p !== port));
       });

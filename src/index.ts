@@ -47,7 +47,7 @@ async function autoSyncOnce(): Promise<void> {
   const currentPath = getCurrentSessionPath();
   if (!currentPath || currentPath === lastSyncedSessionPath) return;
   lastSyncedSessionPath = currentPath;
-  connection.tabGroup.resetForNewSession();
+  await connection.tabGroup.resetForNewSession();
   await connection.tabGroup.initialize();
   const name = connection.tabGroup.getGroupName();
   const color = connection.tabGroup.getGroupColor();
@@ -226,11 +226,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     const createdTabId = extractNewTabId(result);
     if (createdTabId && (isTabsNew || name === "browser_navigate")) {
+      const createdGroupName = connection.tabGroup.getGroupName();
       faviconManager.startActivityAfterLoad(createdTabId, connection);
-      bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: connection.tabGroup.getGroupName(), description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
-      const groupName = connection.tabGroup.getGroupName();
-      if (getCurrentSessionTitle() !== groupName) {
-        writeAutoSync(groupName, connection.tabGroup.getGroupColor());
+      scheduleStop(createdTabId, createdGroupName);
+      bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: createdGroupName, description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
+      if (getCurrentSessionTitle() !== createdGroupName) {
+        writeAutoSync(createdGroupName, connection.tabGroup.getGroupColor());
       }
     }
 

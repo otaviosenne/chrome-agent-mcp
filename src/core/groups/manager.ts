@@ -32,6 +32,7 @@ export class TabGroupManager {
   }
 
   private async doInitialize(): Promise<void> {
+    GroupStateStore.cleanupDeadProcessFiles();
     this.extensionClient = await this.api.findExtensionClient();
 
     const saved = this.store.loadState();
@@ -40,6 +41,11 @@ export class TabGroupManager {
     } else {
       this.assignNewGroupIdentity();
     }
+
+    const cleanup = () => this.store.deleteState();
+    process.once("exit", cleanup);
+    process.once("SIGINT", () => { cleanup(); process.exit(0); });
+    process.once("SIGTERM", () => { cleanup(); process.exit(0); });
   }
 
   private async restoreFromState(saved: PersistedState): Promise<void> {
@@ -100,13 +106,16 @@ export class TabGroupManager {
     });
   }
 
-  resetForNewSession(): void {
+  async resetForNewSession(): Promise<void> {
+    if (this.chromeGroupId !== null && this.extensionClient) {
+      await this.api.ungroupChromeTabs(this.chromeGroupId, this.extensionClient);
+    }
     this.ownedTabIds.clear();
     this.chromeGroupId = null;
     this.initPromise = null;
     this.extensionClient = null;
+    this.store.deleteState();
     this.assignNewGroupIdentity();
-    this.store.clearState(this.groupName, this.groupColor);
   }
 
   async addTab(cdpTabId: string): Promise<void> {
@@ -158,7 +167,7 @@ export class TabGroupManager {
   removeTab(tabId: string): void {
     this.ownedTabIds.delete(tabId);
     if (this.ownedTabIds.size === 0) {
-      this.store.clearState(this.groupName, this.groupColor);
+      this.store.deleteState();
     } else {
       this.persistState();
     }
