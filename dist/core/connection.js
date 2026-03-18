@@ -17,8 +17,8 @@ export class ChromeConnection {
     }
     async listTabs() {
         const targets = await CDP.List({ port: this.debugPort });
-        const allPages = targets
-            .filter((t) => t.type === "page")
+        return targets
+            .filter((t) => t.type === "page" && this.tabGroup.isOwned(t.id))
             .map((t) => ({
             id: t.id,
             title: t.title,
@@ -26,9 +26,6 @@ export class ChromeConnection {
             type: t.type,
             webSocketDebuggerUrl: t.webSocketDebuggerUrl,
         }));
-        if (!this.tabGroup.hasOwnedTabs())
-            return allPages;
-        return allPages.filter((t) => this.tabGroup.isOwned(t.id));
     }
     async getClient(tabId) {
         const resolvedId = tabId ?? this.activeTabId;

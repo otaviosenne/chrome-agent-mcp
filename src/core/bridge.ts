@@ -12,6 +12,7 @@ export interface BridgeEvent {
   screenshot?: string;
   description?: string;
   tabVerb?: string;
+  groupColor?: string;
 }
 
 const RECONNECT_INTERVAL_MS = 5000;

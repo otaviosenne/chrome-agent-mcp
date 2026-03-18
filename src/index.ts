@@ -43,6 +43,7 @@ const faviconManager = new TabFaviconManager();
 const bridge = new ExtensionBridge(DEBUG_PORT);
 
 let lastSyncedSessionPath: string | null = null;
+let lastWrittenAutoSyncGroup: string | null = null;
 
 async function autoSyncOnce(): Promise<void> {
   const currentPath = getCurrentSessionPath();
@@ -234,10 +235,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
       bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: createdGroupName, description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
       const groupColor = connection.tabGroup.getGroupColor();
-      writeAutoSync(createdGroupName, groupColor);
       const claudeColor = chromeToClaude(groupColor) ?? "default";
-      if (result?.content?.[0]?.type === "text") {
-        result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
+      if (createdGroupName !== lastWrittenAutoSyncGroup) {
+        lastWrittenAutoSyncGroup = createdGroupName;
+        writeAutoSync(createdGroupName, groupColor);
+        if (result?.content?.[0]?.type === "text") {
+          result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
+        }
       }
     }
 
@@ -254,7 +258,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "browser_take_screenshot") {
       const screenshotData = extractScreenshot(result);
       if (screenshotData && tabId) {
-        bridge.log({ type: "screenshot", tool: "browser_take_screenshot", tabId, groupName, screenshot: screenshotData });
+        bridge.log({ type: "screenshot", tool: "browser_take_screenshot", tabId, groupName, groupColor: connection.tabGroup.getGroupColor(), screenshot: screenshotData });
       }
     }
 

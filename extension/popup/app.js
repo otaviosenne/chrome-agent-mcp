@@ -197,7 +197,11 @@ function setupFilterBar() {
   });
 
   document.getElementById("clear-btn").addEventListener("click", () => {
-    state.events = [];
+    if (currentView === "log") {
+      state.events = state.events.filter(e => e.type === "screenshot" && e.screenshot);
+    } else {
+      state.events = state.events.filter(e => e.type !== "screenshot");
+    }
     renderAll();
   });
 }

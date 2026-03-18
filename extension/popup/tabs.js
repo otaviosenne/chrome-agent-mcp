@@ -1,5 +1,21 @@
 import { state, expandedGroups, expandedHeartbeatGroups } from "./app.js";
 
+const CHROME_COLOR_CSS = {
+  grey:   "#6b7280",
+  blue:   "#3b82f6",
+  red:    "#ef4444",
+  yellow: "#ca8a04",
+  green:  "#16a34a",
+  pink:   "#ec4899",
+  purple: "#9333ea",
+  cyan:   "#0891b2",
+  orange: "#ea580c",
+};
+
+function chromeColorToCss(color) {
+  return CHROME_COLOR_CSS[color] || CHROME_COLOR_CSS.grey;
+}
+
 export function safeHostname(url) {
   try {
     return new URL(url).hostname.replace("www.", "");
@@ -22,7 +38,7 @@ function aliveGroupNames() {
 
   for (const groupTitle of Object.keys(state.chromeGroups)) {
     const sessionId = state.groups[groupTitle];
-    if (!sessionId || aliveSet.has(sessionId)) {
+    if (sessionId && aliveSet.has(sessionId)) {
       names.add(groupTitle);
     }
   }
@@ -109,9 +125,7 @@ function eventBadge(type) {
 }
 
 function renderEventItem(event) {
-  const sid = (event.sessionId || "").slice(0, 8);
-  const desc = event.groupName && state.descriptions[event.groupName];
-  const sessionLabel = desc || sid;
+  const sessionLabel = event.groupName || (event.sessionId || "").slice(0, 8);
   return `
     <div class="event-item">
       ${eventBadge(event.type)}
@@ -221,14 +235,18 @@ export function renderScreenshots(sessionFilter) {
     return;
   }
 
-  grid.innerHTML = filtered.map(event => `
+  grid.innerHTML = filtered.map(event => {
+    const dotColor = chromeColorToCss(event.groupColor);
+    return `
     <div class="screenshot-wrapper">
       <div class="screenshot-thumb" data-src="data:image/png;base64,${event.screenshot}">
+        <div class="screenshot-group-dot" style="background:${dotColor}"></div>
         <img src="data:image/png;base64,${event.screenshot}" alt="Screenshot" loading="lazy" />
       </div>
       <button class="screenshot-copy-btn" data-src="data:image/png;base64,${event.screenshot}">Copy</button>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   grid.querySelectorAll(".screenshot-thumb").forEach(thumb => {
     thumb.addEventListener("click", () => openModal(thumb.dataset.src));

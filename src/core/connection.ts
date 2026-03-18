@@ -27,8 +27,8 @@ export class ChromeConnection {
 
   async listTabs(): Promise<TabInfo[]> {
     const targets = await (CDP as any).List({ port: this.debugPort });
-    const allPages = targets
-      .filter((t: any) => t.type === "page")
+    return targets
+      .filter((t: any) => t.type === "page" && this.tabGroup.isOwned(t.id))
       .map((t: any) => ({
         id: t.id,
         title: t.title,
@@ -36,9 +36,6 @@ export class ChromeConnection {
         type: t.type,
         webSocketDebuggerUrl: t.webSocketDebuggerUrl,
       }));
-
-    if (!this.tabGroup.hasOwnedTabs()) return allPages;
-    return allPages.filter((t: TabInfo) => this.tabGroup.isOwned(t.id));
   }
 
   async getClient(tabId?: string): Promise<any> {

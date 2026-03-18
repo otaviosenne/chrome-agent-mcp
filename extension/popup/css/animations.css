@@ -140,6 +140,18 @@
   position: relative;
 }
 
+.screenshot-group-dot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  pointer-events: none;
+}
+
 .screenshot-thumb {
   border-radius: 10px;
   overflow: hidden;

@@ -9,6 +9,7 @@ export interface BridgeEvent {
     screenshot?: string;
     description?: string;
     tabVerb?: string;
+    groupColor?: string;
 }
 export declare class ExtensionBridge {
     readonly sessionId: string;

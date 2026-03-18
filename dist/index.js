@@ -23,6 +23,7 @@ const connection = new ChromeConnection(DEBUG_PORT);
 const faviconManager = new TabFaviconManager();
 const bridge = new ExtensionBridge(DEBUG_PORT);
 let lastSyncedSessionPath = null;
+let lastWrittenAutoSyncGroup = null;
 async function autoSyncOnce() {
     const currentPath = getCurrentSessionPath();
     if (!currentPath || currentPath === lastSyncedSessionPath)
@@ -190,10 +191,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
             bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url, groupName: createdGroupName, description: generateDescription(name, args, args.url), tabVerb: generateTabVerb(name, args, args.url) });
             const groupColor = connection.tabGroup.getGroupColor();
-            writeAutoSync(createdGroupName, groupColor);
             const claudeColor = chromeToClaude(groupColor) ?? "default";
-            if (result?.content?.[0]?.type === "text") {
-                result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
+            if (createdGroupName !== lastWrittenAutoSyncGroup) {
+                lastWrittenAutoSyncGroup = createdGroupName;
+                writeAutoSync(createdGroupName, groupColor);
+                if (result?.content?.[0]?.type === "text") {
+                    result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
+                }
             }
         }
         if (isNavigation && tabId)
@@ -209,7 +213,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (name === "browser_take_screenshot") {
             const screenshotData = extractScreenshot(result);
             if (screenshotData && tabId) {
-                bridge.log({ type: "screenshot", tool: "browser_take_screenshot", tabId, groupName, screenshot: screenshotData });
+                bridge.log({ type: "screenshot", tool: "browser_take_screenshot", tabId, groupName, groupColor: connection.tabGroup.getGroupColor(), screenshot: screenshotData });
             }
         }
         return result;
