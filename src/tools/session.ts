@@ -102,9 +102,7 @@ export function writeAutoSync(groupName: string, groupColor: string): void {
     const claudeColor = chromeToClaude(groupColor) ?? "default";
     writeFileSync(join(claudeDir, ".pending_rename"), groupName, "utf8");
     writeFileSync(join(claudeDir, ".pending_color"), claudeColor, "utf8");
-    const kittyPid = process.env.KITTY_PID ?? "";
-    const pidPayload = kittyPid ? `kitty:${kittyPid}` : `mcp:${process.pid}`;
-    writeFileSync(join(claudeDir, ".pending_pid"), pidPayload, "utf8");
+    writeFileSync(join(claudeDir, ".pending_pid"), `mcp:${process.pid}`, "utf8");
   } catch {}
 }
 
