@@ -6,6 +6,7 @@ import { ChromeConnection } from "./core/connection.js";
 import { TabFaviconManager } from "./core/favicon.js";
 import { ExtensionBridge } from "./core/bridge.js";
 import { generateDescription, generateTabVerb } from "./utils/description.js";
+import { chromeToClaude } from "./utils/identity.js";
 import { tabsToolDefinition, handleTabs } from "./tools/tabs.js";
 import { navigateToolDefinition, navigateBackToolDefinition, navigateForwardToolDefinition, reloadToolDefinition, handleNavigate, handleNavigateBack, handleNavigateForward, handleReload, } from "./tools/navigation.js";
 import { snapshotToolDefinition, screenshotToolDefinition, evaluateToolDefinition, handleSnapshot, handleScreenshot, handleEvaluate, } from "./tools/media.js";
@@ -103,9 +104,10 @@ function isIdempotentCall(name, args) {
 const SKIP_FAVICON_ACTIONS = new Set(["list", "close", "switch", "done"]);
 const NAVIGATION_TOOLS = new Set(["browser_navigate", "browser_navigate_back", "browser_navigate_forward", "browser_reload"]);
 const STOP_DELAY_MS = 25000;
+const BLANK_TAB_STOP_DELAY_MS = 2000;
 const DONE_RESTORE_DELAY_MS = 3000;
 const stopTimers = new Map();
-function scheduleStop(tabId, groupName) {
+function scheduleStop(tabId, groupName, delayMs = STOP_DELAY_MS) {
     const existing = stopTimers.get(tabId);
     if (existing)
         clearTimeout(existing);
@@ -114,7 +116,7 @@ function scheduleStop(tabId, groupName) {
         await faviconManager.markDone(tabId, connection);
         bridge.log({ type: "tab_done", tool: "browser_tabs:stop", tabId, groupName, description: "inativo" });
         setTimeout(() => faviconManager.stopActivity(tabId, connection), DONE_RESTORE_DELAY_MS);
-    }, STOP_DELAY_MS);
+    }, delayMs);
     stopTimers.set(tabId, timer);
 }
 function cancelStop(tabId) {
@@ -183,11 +185,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const createdTabId = extractNewTabId(result);
         if (createdTabId && (isTabsNew || name === "browser_navigate")) {
             const createdGroupName = connection.tabGroup.getGroupName();
+            const hasUrl = !!args.url;
             faviconManager.startActivityAfterLoad(createdTabId, connection);
-            scheduleStop(createdTabId, createdGroupName);
+            scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
             bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url, groupName: createdGroupName, description: generateDescription(name, args, args.url), tabVerb: generateTabVerb(name, args, args.url) });
             if (getCurrentSessionTitle() !== createdGroupName) {
-                writeAutoSync(createdGroupName, connection.tabGroup.getGroupColor());
+                renameClaudeSession(createdGroupName);
+                const groupColor = connection.tabGroup.getGroupColor();
+                writeAutoSync(createdGroupName, groupColor);
+                const claudeColor = chromeToClaude(groupColor) ?? "default";
+                if (result?.content?.[0]?.type === "text") {
+                    result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
+                }
             }
         }
         if (isNavigation && tabId)
