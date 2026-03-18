@@ -80,35 +80,29 @@ describe("GroupStateStore.saveState", () => {
   });
 });
 
-describe("GroupStateStore.clearState", () => {
+describe("GroupStateStore.deleteState", () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it("does not write when file does not exist", () => {
+  it("does not call unlinkSync when file does not exist", () => {
     vi.mocked(fs.existsSync).mockReturnValue(false);
     const store = new GroupStateStore(MOCK_STATE_FILE);
-    store.clearState("Fenix", "red");
-    expect(fs.writeFileSync).not.toHaveBeenCalled();
+    store.deleteState();
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
   });
 
-  it("writes cleared state when file exists", () => {
-    let written = "";
+  it("calls unlinkSync when file exists", () => {
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.writeFileSync).mockImplementation((_path, data) => { written = data as string; });
     const store = new GroupStateStore(MOCK_STATE_FILE);
-    store.clearState("Fenix", "red");
-    const parsed = JSON.parse(written) as PersistedState;
-    expect(parsed.chromeGroupId).toBeNull();
-    expect(parsed.groupName).toBe("Fenix");
-    expect(parsed.groupColor).toBe("red");
-    expect(parsed.ownedTabIds).toEqual([]);
+    store.deleteState();
+    expect(fs.unlinkSync).toHaveBeenCalledWith(MOCK_STATE_FILE);
   });
 
-  it("does not throw when writeFileSync fails", () => {
+  it("does not throw when unlinkSync fails", () => {
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.writeFileSync).mockImplementation(() => { throw new Error("disk full"); });
+    vi.mocked(fs.unlinkSync).mockImplementation(() => { throw new Error("permission denied"); });
     const store = new GroupStateStore(MOCK_STATE_FILE);
-    expect(() => store.clearState("Fenix", "red")).not.toThrow();
+    expect(() => store.deleteState()).not.toThrow();
   });
 });
