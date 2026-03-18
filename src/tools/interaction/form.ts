@@ -86,7 +86,7 @@ export async function handleScroll(
 ): Promise<ToolResult> {
   const client = await connection.getClient(args.tabId as string | undefined);
   const direction = args.direction as string;
-  const amount = (args.amount as number) || 300;
+  const amount = Number(args.amount) || 300;
   const deltaX = direction === "right" ? amount : direction === "left" ? -amount : 0;
   const deltaY = direction === "down" ? amount : direction === "up" ? -amount : 0;
 

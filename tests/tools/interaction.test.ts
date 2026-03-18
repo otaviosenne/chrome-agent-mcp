@@ -223,6 +223,32 @@ describe("handleScroll", () => {
     );
   });
 
+  it("coerces string amount to number", async () => {
+    const mockClient = createMockClient();
+    const connection = createMockConnection({}, {
+      getClient: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    await handleScroll({ direction: "down", amount: "500" as unknown as number }, connection);
+
+    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "mouseWheel", deltaY: 500 })
+    );
+  });
+
+  it("falls back to 300 when amount is NaN", async () => {
+    const mockClient = createMockClient();
+    const connection = createMockConnection({}, {
+      getClient: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    await handleScroll({ direction: "down", amount: "notanumber" as unknown as number }, connection);
+
+    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ deltaY: 300 })
+    );
+  });
+
   it("uses element center when ref is provided", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {

@@ -178,7 +178,7 @@ function renderHeartbeatGroup(group) {
   `;
 }
 
-function buildEventSegments(filteredEvents) {
+export function buildEventSegments(filteredEvents) {
   const segments = [];
   let i = 0;
   while (i < filteredEvents.length) {

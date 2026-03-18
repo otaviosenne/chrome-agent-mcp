@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { ChromeConnection } from "../../src/core/connection.js";
-import { handleScreenshot, handleSnapshot, handleEvaluate } from "../../src/tools/media.js";
+import { handleScreenshot, handleSnapshot, handleEvaluate, wrapForEvaluation } from "../../src/tools/media.js";
 
 vi.mock("../../src/utils/accessibility.js", () => ({
   formatAccessibilityTree: vi.fn().mockReturnValue("accessibility-tree-output"),
@@ -149,6 +149,51 @@ describe("handleSnapshot", () => {
   });
 });
 
+describe("wrapForEvaluation", () => {
+  it("leaves simple expression unwrapped", () => {
+    expect(wrapForEvaluation("document.title")).toBe("document.title");
+  });
+
+  it("wraps top-level const declaration in async IIFE", () => {
+    const result = wrapForEvaluation("const x = document.title; return x;");
+    expect(result).toContain("async () =>");
+    expect(result).toContain("const x = document.title");
+  });
+
+  it("wraps top-level let declaration in async IIFE", () => {
+    const result = wrapForEvaluation("let x = 1; return x;");
+    expect(result).toContain("async () =>");
+  });
+
+  it("wraps top-level var declaration in async IIFE", () => {
+    const result = wrapForEvaluation("var x = 1; return x;");
+    expect(result).toContain("async () =>");
+  });
+
+  it("wraps bare return statement in async IIFE", () => {
+    const result = wrapForEvaluation("return document.title;");
+    expect(result).toContain("async () =>");
+    expect(result).toContain("return document.title");
+  });
+
+  it("does not double-wrap already-parenthesized expression", () => {
+    const iife = "(() => { const x = 1; return x; })()";
+    expect(wrapForEvaluation(iife)).toBe(iife);
+  });
+
+  it("does not double-wrap async IIFE", () => {
+    const iife = "(async () => { return 1; })()";
+    expect(wrapForEvaluation(iife)).toBe(iife);
+  });
+
+  it("wraps multiline expression with top-level const", () => {
+    const expr = "const btn = document.querySelector('button');\nbtn.click();\nreturn btn.textContent;";
+    const result = wrapForEvaluation(expr);
+    expect(result).toContain("async () =>");
+    expect(result).toContain("btn.click()");
+  });
+});
+
 describe("handleEvaluate", () => {
   it("evaluates expression and returns result", async () => {
     const mockClient = createMockClient({
@@ -185,6 +230,41 @@ describe("handleEvaluate", () => {
 
     expect(result.content[0].text).toContain('"key"');
     expect(result.content[0].text).toContain('"val"');
+  });
+
+  it("automatically wraps top-level const expression before sending to CDP", async () => {
+    const mockClient = createMockClient({
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({ result: { value: "wrapped", type: "string" } }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, {
+      getClient: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    await handleEvaluate({ expression: "const x = 1; return x;" }, connection);
+
+    const calledWith = mockClient.Runtime.evaluate.mock.calls[0][0].expression as string;
+    expect(calledWith).toContain("async () =>");
+    expect(calledWith).toContain("const x = 1");
+  });
+
+  it("does not wrap simple expression before sending to CDP", async () => {
+    const mockClient = createMockClient({
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({ result: { value: "title", type: "string" } }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, {
+      getClient: vi.fn().mockResolvedValue(mockClient),
+    });
+
+    await handleEvaluate({ expression: "document.title" }, connection);
+
+    const calledWith = mockClient.Runtime.evaluate.mock.calls[0][0].expression as string;
+    expect(calledWith).toBe("document.title");
   });
 
   it("returns isError when exceptionDetails present", async () => {
