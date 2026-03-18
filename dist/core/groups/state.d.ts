@@ -11,5 +11,6 @@ export declare class GroupStateStore {
     loadState(): PersistedState | null;
     saveState(state: PersistedState): void;
     deleteState(): void;
+    static findSharedState(debugPort: number, myPid: number): PersistedState | null;
     static cleanupDeadProcessFiles(): void;
 }

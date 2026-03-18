@@ -34,7 +34,15 @@ export class TabGroupManager {
             await this.restoreFromState(saved);
         }
         else {
-            this.assignNewGroupIdentity();
+            const shared = GroupStateStore.findSharedState(this.debugPort, process.pid);
+            if (shared && isAnimalName(shared.groupName)) {
+                this.groupName = shared.groupName;
+                this.groupColor = shared.groupColor;
+                this.chromeGroupId = shared.chromeGroupId;
+            }
+            else {
+                this.assignNewGroupIdentity();
+            }
         }
         const cleanup = () => this.store.deleteState();
         process.once("exit", cleanup);
