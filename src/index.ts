@@ -49,6 +49,7 @@ async function autoSyncOnce(): Promise<void> {
   const currentPath = getCurrentSessionPath();
   if (!currentPath || currentPath === lastSyncedSessionPath) return;
   lastSyncedSessionPath = currentPath;
+  if (connection.tabGroup.hasOwnedTabs()) return;
   await connection.tabGroup.resetForNewSession();
   await connection.tabGroup.initialize();
   const name = connection.tabGroup.getGroupName();
@@ -56,6 +57,7 @@ async function autoSyncOnce(): Promise<void> {
   if (!name) return;
   const currentTitle = getCurrentSessionTitle();
   if (currentTitle !== name) {
+    lastWrittenAutoSyncGroup = name;
     renameClaudeSession(name);
     writeAutoSync(name, color);
   }
@@ -251,6 +253,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       cancelStop(tabId);
       await faviconManager.stopActivity(tabId, connection);
       bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName, description: "fechando tab" });
+      if (!connection.tabGroup.hasOwnedTabs()) lastWrittenAutoSyncGroup = null;
     } else if (tabId) {
       scheduleStop(tabId, groupName);
     }
