@@ -94,6 +94,18 @@ export async function handleDevtoolsStorage(
   return { content: [{ type: "text", text: `Unknown action: ${action}` }], isError: true };
 }
 
+const DEFAULT_COOKIE_PATH = "/";
+
+async function resolveCurrentPageCookieDefaults(
+  client: any
+): Promise<{ domain: string; path: string }> {
+  const { result } = await client.Runtime.evaluate({
+    expression: "window.location.hostname",
+    returnByValue: true,
+  });
+  return { domain: result.value as string, path: DEFAULT_COOKIE_PATH };
+}
+
 async function handleCookies(
   client: any,
   action: string,
@@ -118,15 +130,15 @@ async function handleCookies(
 
   if (action === "set") {
     if (!key || value === undefined) return { content: [{ type: "text", text: "key and value are required for set" }] };
-    const { result: urlResult } = await client.Runtime.evaluate({ expression: "document.location.href", returnByValue: true });
-    await client.Network.setCookie({ name: key, value, url: urlResult.value });
+    const { domain, path } = await resolveCurrentPageCookieDefaults(client);
+    await client.Network.setCookie({ name: key, value, domain, path });
     return { content: [{ type: "text", text: `Set cookie ${key} = "${value}"` }] };
   }
 
   if (action === "delete") {
     if (!key) return { content: [{ type: "text", text: "key is required for delete" }] };
-    const { result: urlResult } = await client.Runtime.evaluate({ expression: "document.location.href", returnByValue: true });
-    await client.Network.deleteCookies({ name: key, url: urlResult.value });
+    const { domain, path } = await resolveCurrentPageCookieDefaults(client);
+    await client.Network.deleteCookies({ name: key, domain, path });
     return { content: [{ type: "text", text: `Deleted cookie: ${key}` }] };
   }
 

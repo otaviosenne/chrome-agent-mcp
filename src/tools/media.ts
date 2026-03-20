@@ -63,11 +63,25 @@ export const evaluateToolDefinition: Tool = {
   },
 };
 
+const SCREENSHOT_READY_TIMEOUT_MS = 3000;
+
 export async function handleScreenshot(
   args: Record<string, unknown>,
   connection: ChromeConnection
 ): Promise<ToolResult> {
   const client = await connection.getClient(args.tabId as string | undefined);
+
+  const { result: readyStateResult } = await client.Runtime.evaluate({
+    expression: `document.readyState`,
+    returnByValue: true,
+  });
+
+  if (readyStateResult.value === "loading") {
+    await Promise.race([
+      client.Page.loadEventFired(),
+      new Promise((resolve) => setTimeout(resolve, SCREENSHOT_READY_TIMEOUT_MS)),
+    ]);
+  }
 
   let clip;
   if (args.fullPage) {
@@ -116,8 +130,12 @@ export async function handleEvaluate(
   args: Record<string, unknown>,
   connection: ChromeConnection
 ): Promise<ToolResult> {
+  if (!args.expression || typeof args.expression !== "string") {
+    return { content: [{ type: "text", text: "Error: expression is required" }], isError: true };
+  }
+
   const client = await connection.getClient(args.tabId as string | undefined);
-  const expression = wrapForEvaluation(args.expression as string);
+  const expression = wrapForEvaluation(args.expression);
 
   const { result, exceptionDetails } = await client.Runtime.evaluate({
     expression,
