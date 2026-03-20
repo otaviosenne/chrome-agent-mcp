@@ -31,12 +31,12 @@ export const sessionSyncToolDefinition = {
 export function getCurrentSessionPath() {
     return findCurrentSessionFile()?.file ?? null;
 }
-export function getCurrentSessionTitle() {
+export function getCurrentSessionTitle(sessionPath) {
     try {
-        const session = findCurrentSessionFile();
-        if (!session)
+        const filePath = sessionPath ?? findCurrentSessionFile()?.file;
+        if (!filePath)
             return null;
-        const lines = readFileSync(session.file, "utf8").trim().split("\n");
+        const lines = readFileSync(filePath, "utf8").trim().split("\n");
         let title = null;
         for (const line of lines) {
             try {

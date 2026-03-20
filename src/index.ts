@@ -55,7 +55,7 @@ async function autoSyncOnce(): Promise<void> {
   const name = connection.tabGroup.getGroupName();
   const color = connection.tabGroup.getGroupColor();
   if (!name) return;
-  const currentTitle = getCurrentSessionTitle();
+  const currentTitle = getCurrentSessionTitle(currentPath);
   if (currentTitle !== name) {
     lastWrittenAutoSyncGroup = name;
     writeAutoSync(name, color);
@@ -237,7 +237,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (createdGroupName !== lastWrittenAutoSyncGroup) {
         lastWrittenAutoSyncGroup = createdGroupName;
         writeAutoSync(createdGroupName, groupColor);
-        if (result?.content?.[0]?.type === "text") {
+        if (result?.content?.[0]?.type === "text" && typeof result.content[0].text === "string") {
           result.content[0].text += `\n/rename ${createdGroupName}\n/color ${claudeColor}`;
         }
       }

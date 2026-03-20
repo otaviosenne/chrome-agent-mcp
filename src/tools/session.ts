@@ -38,11 +38,11 @@ export function getCurrentSessionPath(): string | null {
   return findCurrentSessionFile()?.file ?? null;
 }
 
-export function getCurrentSessionTitle(): string | null {
+export function getCurrentSessionTitle(sessionPath?: string): string | null {
   try {
-    const session = findCurrentSessionFile();
-    if (!session) return null;
-    const lines = readFileSync(session.file, "utf8").trim().split("\n");
+    const filePath = sessionPath ?? findCurrentSessionFile()?.file;
+    if (!filePath) return null;
+    const lines = readFileSync(filePath, "utf8").trim().split("\n");
     let title: string | null = null;
     for (const line of lines) {
       try {
