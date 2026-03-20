@@ -1,24 +1,10 @@
+import { resolveElement, getElementCenter } from "./dom-utils.js";
 const TAB_ID_PROP = {
     tabId: {
         type: "string",
         description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
     },
 };
-async function resolveElement(client, ref) {
-    return client.DOM.resolveNode({ backendNodeId: ref });
-}
-async function getElementCenter(client, ref) {
-    const { object } = await resolveElement(client, ref);
-    const { result } = await client.Runtime.callFunctionOn({
-        objectId: object.objectId,
-        functionDeclaration: `function() {
-      const r = this.getBoundingClientRect();
-      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-    }`,
-        returnByValue: true,
-    });
-    return JSON.parse(result.value);
-}
 async function mouseClick(client, x, y) {
     await client.Input.dispatchMouseEvent({ type: "mousePressed", x, y, button: "left", clickCount: 1 });
     try {

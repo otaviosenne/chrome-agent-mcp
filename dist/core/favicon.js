@@ -129,6 +129,7 @@ export class TabFaviconManager {
     }
     async stopActivity(tabId, connection) {
         try {
+            connection.clearClientForTab(tabId);
             const client = await connection.getClientForTab(tabId);
             await client.Runtime.evaluate({ expression: STOP_SCRIPT });
         }

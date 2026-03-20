@@ -70,6 +70,16 @@ export class ChromeConnection {
         this.clients.set(tabId, client);
         return client;
     }
+    clearClientForTab(tabId) {
+        const client = this.clients.get(tabId);
+        if (client) {
+            try {
+                client.close();
+            }
+            catch { }
+            this.clients.delete(tabId);
+        }
+    }
     setActiveTab(tabId) {
         this.activeTabId = tabId;
     }
@@ -103,6 +113,11 @@ export class ChromeConnection {
         }
         await CDP.Close({ id: tabId, port: this.debugPort });
         this.tabGroup.removeTab(tabId);
+        this.networkLogs.delete(tabId);
+        this.consoleLogs.delete(tabId);
+        this.networkEnabled.delete(tabId);
+        this.consoleEnabled.delete(tabId);
+        this.mousePositions.delete(tabId);
         if (this.activeTabId === tabId)
             this.activeTabId = null;
     }
@@ -140,8 +155,12 @@ export class ChromeConnection {
                 startTime: pending.startTime,
                 duration: params.timestamp - pending.startTime,
             });
+            pendingRequests.delete(params.requestId);
             if (logs.length > MAX_LOG_ENTRIES)
                 logs.shift();
+        });
+        client.Network.loadingFailed((params) => {
+            pendingRequests.delete(params.requestId);
         });
         this.networkEnabled.add(tabId);
     }

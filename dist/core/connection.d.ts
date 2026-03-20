@@ -18,6 +18,7 @@ export declare class ChromeConnection {
     listTabs(): Promise<TabInfo[]>;
     getClient(tabId?: string): Promise<any>;
     getClientForTab(tabId: string): Promise<any>;
+    clearClientForTab(tabId: string): void;
     setActiveTab(tabId: string): void;
     getActiveTabId(): string | null;
     newTab(url?: string): Promise<TabInfo>;

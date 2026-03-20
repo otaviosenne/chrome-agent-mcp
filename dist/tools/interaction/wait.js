@@ -15,6 +15,13 @@ export const waitForToolDefinition = {
         },
     },
 };
+async function pageContainsText(client, text) {
+    const { result } = await client.Runtime.evaluate({
+        expression: `document.body.innerText.includes(${JSON.stringify(text)})`,
+        returnByValue: true,
+    });
+    return result.value;
+}
 export async function handleWaitFor(args, connection) {
     const client = await connection.getClient(args.tabId);
     const text = args.text;
@@ -23,15 +30,18 @@ export async function handleWaitFor(args, connection) {
         await new Promise((resolve) => setTimeout(resolve, timeSeconds * 1000));
         return { content: [{ type: "text", text: `Waited ${timeSeconds}s` }] };
     }
+    if (await pageContainsText(client, text)) {
+        return { content: [{ type: "text", text: `Text found: "${text}"` }] };
+    }
     const deadline = Date.now() + WAIT_TIMEOUT_MS;
     while (Date.now() < deadline) {
-        const { result } = await client.Runtime.evaluate({
-            expression: `document.body.innerText.includes(${JSON.stringify(text)})`,
-            returnByValue: true,
-        });
-        if (result.value)
-            return { content: [{ type: "text", text: `Text found: "${text}"` }] };
         await new Promise((resolve) => setTimeout(resolve, WAIT_POLL_INTERVAL_MS));
+        if (await pageContainsText(client, text)) {
+            return { content: [{ type: "text", text: `Text found: "${text}"` }] };
+        }
+    }
+    if (await pageContainsText(client, text)) {
+        return { content: [{ type: "text", text: `Text found: "${text}"` }] };
     }
     return { content: [{ type: "text", text: `Timeout waiting for text: "${text}"` }], isError: true };
 }

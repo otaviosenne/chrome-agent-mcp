@@ -1,24 +1,12 @@
+import { resolveElement, getElementCenter, buildFieldResults } from "./dom-utils.js";
+const FALLBACK_VIEWPORT_X = 640;
+const FALLBACK_VIEWPORT_Y = 360;
 const TAB_ID_PROP = {
     tabId: {
         type: "string",
         description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
     },
 };
-async function resolveElement(client, ref) {
-    return client.DOM.resolveNode({ backendNodeId: ref });
-}
-async function getElementCenter(client, ref) {
-    const { object } = await resolveElement(client, ref);
-    const { result } = await client.Runtime.callFunctionOn({
-        objectId: object.objectId,
-        functionDeclaration: `function() {
-      const r = this.getBoundingClientRect();
-      return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-    }`,
-        returnByValue: true,
-    });
-    return JSON.parse(result.value);
-}
 export const scrollToolDefinition = {
     name: "browser_scroll",
     description: "Scroll the page or a specific element. Supports targeting a specific tab via tabId.",
@@ -70,19 +58,28 @@ export const fillFormToolDefinition = {
         required: ["fields"],
     },
 };
+async function resolveViewportCenter(client) {
+    try {
+        const { result } = await client.Runtime.evaluate({
+            expression: "JSON.stringify({ x: window.innerWidth / 2, y: window.innerHeight / 2 })",
+            returnByValue: true,
+        });
+        return JSON.parse(result.value);
+    }
+    catch {
+        return { x: FALLBACK_VIEWPORT_X, y: FALLBACK_VIEWPORT_Y };
+    }
+}
 export async function handleScroll(args, connection) {
     const client = await connection.getClient(args.tabId);
     const direction = args.direction;
     const amount = Number(args.amount) || 300;
     const deltaX = direction === "right" ? amount : direction === "left" ? -amount : 0;
     const deltaY = direction === "down" ? amount : direction === "up" ? -amount : 0;
-    if (args.ref) {
-        const { x, y } = await getElementCenter(client, args.ref);
-        await client.Input.dispatchMouseEvent({ type: "mouseWheel", x, y, deltaX, deltaY });
-    }
-    else {
-        await client.Input.dispatchMouseEvent({ type: "mouseWheel", x: 640, y: 360, deltaX, deltaY });
-    }
+    const { x, y } = args.ref
+        ? await getElementCenter(client, args.ref)
+        : await resolveViewportCenter(client);
+    await client.Input.dispatchMouseEvent({ type: "mouseWheel", x, y, deltaX, deltaY });
     return { content: [{ type: "text", text: `Scrolled ${direction} by ${amount}px` }] };
 }
 export async function handleSelectOption(args, connection) {
@@ -100,18 +97,25 @@ export async function handleSelectOption(args, connection) {
 export async function handleFillForm(args, connection) {
     const client = await connection.getClient(args.tabId);
     const fields = args.fields;
+    const results = [];
     for (const field of fields) {
-        const { object } = await resolveElement(client, field.ref);
-        await client.Runtime.callFunctionOn({
-            objectId: object.objectId,
-            functionDeclaration: `function(v) {
-        this.focus();
-        this.value = v;
-        this.dispatchEvent(new Event("input", { bubbles: true }));
-        this.dispatchEvent(new Event("change", { bubbles: true }));
-      }`,
-            arguments: [{ value: field.value }],
-        });
+        try {
+            const { object } = await resolveElement(client, field.ref);
+            await client.Runtime.callFunctionOn({
+                objectId: object.objectId,
+                functionDeclaration: `function(v) {
+          this.focus();
+          this.value = v;
+          this.dispatchEvent(new Event("input", { bubbles: true }));
+          this.dispatchEvent(new Event("change", { bubbles: true }));
+        }`,
+                arguments: [{ value: field.value }],
+            });
+            results.push({ ref: field.ref, success: true });
+        }
+        catch (e) {
+            results.push({ ref: field.ref, success: false, error: String(e) });
+        }
     }
-    return { content: [{ type: "text", text: `Filled ${fields.length} form field(s)` }] };
+    return buildFieldResults(results);
 }
