@@ -1,0 +1,90 @@
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+  50% { box-shadow: 0 0 40px var(--primary-glow), 0 0 60px rgba(0,212,255,0.1); }
+}
+
+.mock-window { animation: glow 4s ease-in-out infinite; }
+
+.hero-title .gradient-text {
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+}
+
+.section-badge {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+  background: linear-gradient(90deg, rgba(108,99,255,0.15), rgba(0,212,255,0.15), rgba(108,99,255,0.15));
+  background-size: 200% auto;
+}
+
+[data-theme="light"] .section-badge {
+  background: linear-gradient(90deg, rgba(108,99,255,0.12), rgba(0,180,255,0.12), rgba(108,99,255,0.12));
+  background-size: 200% auto;
+}
+
+.stat-num {
+  background: linear-gradient(130deg, var(--text), var(--primary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+.hero-badge {
+  animation: float 4s ease-in-out infinite;
+}
+
+.orb-1 { animation: float 8s ease-in-out infinite; }
+.orb-2 { animation: float 10s ease-in-out infinite reverse; }
+.orb-3 { animation: pulse 6s ease-in-out infinite; }
+
+/* Instant theme transition on root — avoids CSS var mid-transition glitch */
+html { transition: none; }
+body { transition: background-color 0s, color 0s; }
+
+/* Transition for theme switching on UI components */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* Reset transitions that would interfere with animations */
+.mock-window, .hero-float-badge, .orb, .hero-badge, .stat-num,
+.section-badge, .hero-title .gradient-text, .cursor, .cursor-dot {
+  transition: none;
+}
+
+.mock-window { transition: box-shadow 0.3s; }
+.hero-float-badge { transition: transform 0.3s; }
+.step-card, .session-card, .tool-category, .install-step, .res-step, .cta-box, .glass-card {
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+}
+.btn-primary { transition: background 0.3s, transform 0.2s, box-shadow 0.3s; }
+.btn-ghost, .btn-secondary, .btn-icon { transition: border-color 0.3s, background 0.3s, color 0.3s; }
+.nav-link { transition: color 0.3s; }
+.code-copy { transition: background 0.2s, color 0.2s, border-color 0.2s; }
+.tool-tag { transition: background 0.2s, border-color 0.2s, color 0.2s; }
+.footer-col a { transition: color 0.3s; }

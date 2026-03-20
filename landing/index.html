@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Chrome Agent MCP — Full browser control for AI agents via the Model Context Protocol. 23+ tools, session isolation, real-time dashboard.">
+  <title>Chrome Agent MCP — Full Browser Control for AI Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/sections.css">
+  <link rel="stylesheet" href="styles/animations.css">
+</head>
+<body>
+  <div id="cursor"></div>
+  <div id="cursor-dot"></div>
+  <div id="spotlight"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <nav id="navbar">
+    <div class="container nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="nav-logo-icon">🤖</span>
+        <span class="nav-logo-text">chrome-agent-mcp</span>
+      </a>
+      <div class="nav-links">
+        <a href="#how-it-works" class="nav-link" data-i18n="nav.how">How it works</a>
+        <a href="#tools" class="nav-link" data-i18n="nav.tools">Tools</a>
+        <a href="#install" class="nav-link" data-i18n="nav.install">Install</a>
+      </div>
+      <div class="nav-actions">
+        <button id="lang-toggle" class="btn-icon" aria-label="Toggle language">
+          <span class="lang-current">EN</span>
+          <span class="lang-sep">/</span>
+          <span class="lang-other">PT</span>
+        </button>
+        <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+          <span class="theme-icon">☀️</span>
+        </button>
+        <a href="https://github.com/otaviosenne/chrome-agent-mcp" class="btn-secondary" target="_blank" rel="noopener" data-i18n="nav.github">GitHub</a>
+        <a href="#install" class="btn-primary" data-i18n="nav.install-btn">Install</a>
+      </div>
+    </div>
+  </nav>
+
+  <section id="hero">
+    <canvas id="particles"></canvas>
+    <div class="container hero-inner">
+      <div class="hero-content">
+        <div class="hero-badge" data-i18n="hero.badge">Model Context Protocol</div>
+        <h1 class="hero-title">
+          <span data-i18n="hero.line1">Give AI</span><br>
+          <span class="gradient-text" data-i18n="hero.highlight">Full Control</span><br>
+          <span data-i18n="hero.line2">of Chrome</span>
+        </h1>
+        <p class="hero-sub" data-i18n="hero.subtitle">The MCP server that transforms Claude into a real browser agent — navigate, click, inspect, and automate with 23+ tools.</p>
+        <div class="hero-ctas">
+          <a href="#install" class="btn-primary btn-large" data-i18n="hero.cta.primary">Get Started</a>
+          <a href="https://github.com/otaviosenne/chrome-agent-mcp" class="btn-ghost btn-large" target="_blank" rel="noopener" data-i18n="hero.cta.secondary">View on GitHub</a>
+        </div>
+        <div class="hero-note">
+          <span class="hero-cmd">npx chrome-agent-mcp</span>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="mock-window" data-tilt>
+          <div class="mock-titlebar">
+            <div class="mock-dots">
+              <span class="mock-dot-r"></span>
+              <span class="mock-dot-y"></span>
+              <span class="mock-dot-g"></span>
+            </div>
+            <span class="mock-title" data-i18n="hero.mock.header">MCP Dashboard</span>
+            <span class="mock-live"><span class="pulse"></span><span data-i18n="hero.mock.live">Live</span></span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-session-row">
+              <div class="mock-group-dot" style="background:#3b82f6"></div>
+              <span class="mock-session-name" data-i18n="hero.mock.session">Pinguim</span>
+              <span class="mock-session-status active" data-i18n="hero.mock.status">Active</span>
+            </div>
+            <div class="mock-tabs-list">
+              <div class="mock-tab-item active">
+                <div class="mock-fav docs"></div>
+                <span>docs.anthropic.com</span>
+                <span class="mock-loading-dot"></span>
+              </div>
+              <div class="mock-tab-item">
+                <div class="mock-fav gh"></div>
+                <span>github.com/otaviosenne</span>
+              </div>
+              <div class="mock-tab-item">
+                <div class="mock-fav local"></div>
+                <span>localhost:3000</span>
+              </div>
+            </div>
+            <div class="mock-divider"></div>
+            <div class="mock-log">
+              <div class="mock-log-entry cmd">navigate → docs.anthropic.com</div>
+              <div class="mock-log-entry ok">✓ screenshot captured (1280×800)</div>
+              <div class="mock-log-entry cmd">click → "Get Started" button</div>
+              <div class="mock-log-entry ok">✓ form filled: 3 fields</div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-float-badge badge-1">
+          <span class="badge-icon">⚡</span>
+          <span data-i18n="hero.float.tools">23 MCP Tools</span>
+        </div>
+        <div class="hero-float-badge badge-2">
+          <span class="badge-icon">🔗</span>
+          <span data-i18n="hero.float.isolated">Session Isolated</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-scroll-hint"><div class="scroll-line"></div></div>
+  </section>
+
+  <div class="stats-bar">
+    <div class="container stats-inner">
+      <div class="stat-item">
+        <span class="stat-num counter" data-target="23" data-suffix="+">23+</span>
+        <span class="stat-label" data-i18n="stats.tools">MCP Tools</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-num counter" data-target="6" data-suffix="">6</span>
+        <span class="stat-label" data-i18n="stats.categories">Tool Categories</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-icon">∞</span>
+        <span class="stat-label" data-i18n="stats.sessions">Parallel Sessions</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-num counter" data-target="80" data-suffix="%">80%</span>
+        <span class="stat-label" data-i18n="stats.coverage">Test Coverage</span>
+      </div>
+    </div>
+  </div>
+
+  <section id="how-it-works" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="hiw.badge">Setup in Minutes</span>
+        <h2 class="section-title"><span data-i18n="hiw.title">How It Works</span></h2>
+        <p class="section-sub" data-i18n="hiw.subtitle">Three steps to give your AI agent full browser control</p>
+      </div>
+      <div class="hiw-grid">
+        <div class="step-card" data-tilt>
+          <div class="step-num">01</div>
+          <h3 data-i18n="hiw.s1.title">Enable Chrome Debugging</h3>
+          <p data-i18n="hiw.s1.desc">Start Chrome with remote debugging enabled. One flag, permanent setup with a .desktop file.</p>
+          <div class="code-block">
+            <button class="code-copy" data-i18n="copy.btn">Copy</button>
+            <pre><code class="language-bash">google-chrome --remote-debugging-port=9222</code></pre>
+          </div>
+        </div>
+        <div class="step-card" data-tilt>
+          <div class="step-num">02</div>
+          <h3 data-i18n="hiw.s2.title">Connect the MCP Server</h3>
+          <p data-i18n="hiw.s2.desc">Add chrome-agent-mcp to your Claude settings. Run via npx — no global install required.</p>
+          <div class="code-block">
+            <button class="code-copy" data-i18n="copy.btn">Copy</button>
+            <pre><code class="language-bash">npx chrome-agent-mcp</code></pre>
+          </div>
+        </div>
+        <div class="step-card" data-tilt>
+          <div class="step-num">03</div>
+          <h3 data-i18n="hiw.s3.title">Watch Claude Browse</h3>
+          <p data-i18n="hiw.s3.desc">Your AI agent gains full browser control. Navigate, click, fill forms, inspect DevTools — all autonomously.</p>
+          <div class="terminal">
+            <div class="terminal-header"><span data-i18n="term.title">Claude Agent</span></div>
+            <div class="terminal-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sessions" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="ses.badge">Session Isolation</span>
+        <h2 class="section-title">
+          <span data-i18n="ses.title1">Parallel Agents,</span><br>
+          <span class="gradient-text" data-i18n="ses.title2">Zero Conflicts</span>
+        </h2>
+        <p class="section-sub" data-i18n="ses.subtitle">Each Claude session gets its own Chrome tab group with a unique animal name and color.</p>
+      </div>
+      <div class="sessions-grid">
+        <div class="session-card" data-tilt style="--session-color:#3b82f6">
+          <div class="session-header">
+            <div class="session-dot" style="background:#3b82f6"></div>
+            <span class="session-name">🐧 Pinguim</span>
+            <span class="session-tag active" data-i18n="ses.active">Active</span>
+          </div>
+          <div class="session-tabs">
+            <div class="sess-tab"><span>github.com</span></div>
+            <div class="sess-tab"><span>docs.anthropic.com</span></div>
+            <div class="sess-tab busy"><span>localhost:3000 <span class="spin">↻</span></span></div>
+          </div>
+        </div>
+        <div class="session-card" data-tilt style="--session-color:#ef4444">
+          <div class="session-header">
+            <div class="session-dot" style="background:#ef4444"></div>
+            <span class="session-name">🦅 Fenix</span>
+            <span class="session-tag active" data-i18n="ses.active">Active</span>
+          </div>
+          <div class="session-tabs">
+            <div class="sess-tab busy"><span>amazon.com <span class="spin">↻</span></span></div>
+            <div class="sess-tab"><span>stripe.com</span></div>
+          </div>
+        </div>
+        <div class="session-card" data-tilt style="--session-color:#eab308">
+          <div class="session-header">
+            <div class="session-dot" style="background:#eab308"></div>
+            <span class="session-name">🦒 Girafa</span>
+            <span class="session-tag" data-i18n="ses.idle">Idle</span>
+          </div>
+          <div class="session-tabs">
+            <div class="sess-tab"><span>notion.so</span></div>
+            <div class="sess-tab"><span>linear.app</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="sessions-note" data-i18n="ses.note">Animal names are automatically assigned — Penguin, Phoenix, Giraffe, and dozens more.</p>
+    </div>
+  </section>
+
+  <section id="tools" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="tools.badge">23+ MCP Tools</span>
+        <h2 class="section-title">
+          <span data-i18n="tools.title1">Every Tool Your</span><br>
+          <span class="gradient-text" data-i18n="tools.title2">Agent Needs</span>
+        </h2>
+        <p class="section-sub" data-i18n="tools.subtitle">A complete browser automation toolkit in six specialized categories</p>
+      </div>
+      <div class="tools-grid">
+        <div class="tool-category" style="--cat:#3b82f6">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">🧭</span>
+            <h3 data-i18n="tools.cat.nav">Navigation</h3>
+            <span class="tool-count">4</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">browser_navigate</span>
+            <span class="tool-tag">browser_navigate_back</span>
+            <span class="tool-tag">browser_navigate_forward</span>
+            <span class="tool-tag">browser_reload</span>
+          </div>
+        </div>
+        <div class="tool-category" style="--cat:#8b5cf6">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">🖱️</span>
+            <h3 data-i18n="tools.cat.inter">Interaction</h3>
+            <span class="tool-count">8</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">browser_click</span>
+            <span class="tool-tag">browser_type</span>
+            <span class="tool-tag">browser_hover</span>
+            <span class="tool-tag">browser_press_key</span>
+            <span class="tool-tag">browser_scroll</span>
+            <span class="tool-tag">browser_select_option</span>
+            <span class="tool-tag">browser_fill_form</span>
+            <span class="tool-tag">browser_wait_for</span>
+          </div>
+        </div>
+        <div class="tool-category" style="--cat:#06b6d4">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">🔍</span>
+            <h3 data-i18n="tools.cat.insp">Inspection</h3>
+            <span class="tool-count">3</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">browser_snapshot</span>
+            <span class="tool-tag">browser_take_screenshot</span>
+            <span class="tool-tag">browser_evaluate</span>
+          </div>
+        </div>
+        <div class="tool-category" style="--cat:#10b981">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">📑</span>
+            <h3 data-i18n="tools.cat.tabs">Tab Management</h3>
+            <span class="tool-count">5</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">browser_tabs open</span>
+            <span class="tool-tag">browser_tabs close</span>
+            <span class="tool-tag">browser_tabs switch</span>
+            <span class="tool-tag">browser_tabs list</span>
+            <span class="tool-tag">browser_tabs done</span>
+          </div>
+        </div>
+        <div class="tool-category" style="--cat:#f59e0b">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">🔧</span>
+            <h3 data-i18n="tools.cat.devtools">DevTools</h3>
+            <span class="tool-count">4</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">devtools_console</span>
+            <span class="tool-tag">devtools_network</span>
+            <span class="tool-tag">devtools_elements</span>
+            <span class="tool-tag">devtools_storage</span>
+          </div>
+        </div>
+        <div class="tool-category" style="--cat:#ec4899">
+          <div class="tool-cat-header">
+            <span class="tool-cat-icon">🌐</span>
+            <h3 data-i18n="tools.cat.browser">Browser Control</h3>
+            <span class="tool-count">4</span>
+          </div>
+          <div class="tool-tags">
+            <span class="tool-tag">chrome_windows</span>
+            <span class="tool-tag">chrome_focus</span>
+            <span class="tool-tag">chrome_extensions</span>
+            <span class="tool-tag">session_sync</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="extension" class="section">
+    <div class="container ext-inner">
+      <div class="ext-content">
+        <span class="section-badge" data-i18n="ext.badge">Chrome Extension</span>
+        <h2 class="section-title">
+          <span data-i18n="ext.title1">Watch Your AI Browse</span><br>
+          <span class="gradient-text" data-i18n="ext.title2">in Real Time</span>
+        </h2>
+        <p class="section-sub" data-i18n="ext.subtitle">The companion extension gives you full visibility into what your agent is doing.</p>
+        <div class="ext-features">
+          <div class="ext-feature">
+            <span class="ext-feat-icon">📋</span>
+            <div>
+              <h4 data-i18n="ext.f1.title">Live Tab Tracking</h4>
+              <p data-i18n="ext.f1.desc">See every tab your AI opens, with live activity indicators and session labels.</p>
+            </div>
+          </div>
+          <div class="ext-feature">
+            <span class="ext-feat-icon">📡</span>
+            <div>
+              <h4 data-i18n="ext.f2.title">Real-time Event Log</h4>
+              <p data-i18n="ext.f2.desc">A scrolling log of every tool call — navigate, click, type — with timestamps.</p>
+            </div>
+          </div>
+          <div class="ext-feature">
+            <span class="ext-feat-icon">📸</span>
+            <div>
+              <h4 data-i18n="ext.f3.title">Screenshot Preview</h4>
+              <p data-i18n="ext.f3.desc">Thumbnail previews of captured screenshots appear instantly in the popup.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ext-visual">
+        <img src="../store-assets/screenshot1.png" alt="MCP Dashboard Chrome Extension" class="ext-screenshot" data-tilt>
+      </div>
+    </div>
+  </section>
+
+  <section id="resilience" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="res.badge">Built for Reliability</span>
+        <h2 class="section-title"><span class="gradient-text" data-i18n="res.title">Resilient by Design</span></h2>
+        <p class="section-sub" data-i18n="res.subtitle">Every tool call goes through a layered fault-tolerance system so your agent never gets stuck</p>
+      </div>
+      <div class="res-flow">
+        <div class="res-step">
+          <div class="res-step-body">
+            <span class="res-label primary" data-i18n="res.s1.label">Primary</span>
+            <h3 data-i18n="res.s1.title">20s Timeout</h3>
+            <p data-i18n="res.s1.desc">A generous primary timeout handles slow pages and heavy DOM operations.</p>
+          </div>
+        </div>
+        <div class="res-arrow">→</div>
+        <div class="res-step">
+          <div class="res-step-body">
+            <span class="res-label retry" data-i18n="res.s2.label">Retry</span>
+            <h3 data-i18n="res.s2.title">2× Parallel Retries</h3>
+            <p data-i18n="res.s2.desc">On timeout: two concurrent retries at 10s. Reads are parallel, writes sequential.</p>
+          </div>
+        </div>
+        <div class="res-arrow">→</div>
+        <div class="res-step">
+          <div class="res-step-body">
+            <span class="res-label fallback" data-i18n="res.s3.label">Fallback</span>
+            <h3 data-i18n="res.s3.title">New Group Fallback</h3>
+            <p data-i18n="res.s3.desc">If all retries fail, a fresh Chrome group is created and the agent continues seamlessly.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="inst.badge">Quick Setup</span>
+        <h2 class="section-title">
+          <span data-i18n="inst.title1">Up and Running</span><br>
+          <span class="gradient-text" data-i18n="inst.title2">in 2 Minutes</span>
+        </h2>
+        <p class="section-sub" data-i18n="inst.subtitle">Four steps to give your Claude agent full browser control</p>
+      </div>
+      <div class="install-steps">
+        <div class="install-step">
+          <h4 data-i18n="inst.s1">1. Launch Chrome with remote debugging</h4>
+          <div class="code-block">
+            <button class="code-copy" data-i18n="copy.btn">Copy</button>
+            <pre><code class="language-bash">google-chrome --remote-debugging-port=9222</code></pre>
+          </div>
+        </div>
+        <div class="install-step">
+          <h4 data-i18n="inst.s2">2. Run the MCP server</h4>
+          <div class="code-block">
+            <button class="code-copy" data-i18n="copy.btn">Copy</button>
+            <pre><code class="language-bash">npx chrome-agent-mcp</code></pre>
+          </div>
+        </div>
+        <div class="install-step">
+          <h4 data-i18n="inst.s3">3. Add to Claude Desktop config</h4>
+          <div class="code-block">
+            <button class="code-copy" data-i18n="copy.btn">Copy</button>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "chrome-agent-mcp": {
+      "command": "npx",
+      "args": ["chrome-agent-mcp"],
+      "env": { "CHROME_DEBUG_PORT": "9222" }
+    }
+  }
+}</code></pre>
+          </div>
+        </div>
+        <div class="install-step">
+          <h4 data-i18n="inst.s4">4. Install the extension (optional)</h4>
+          <p class="install-text" data-i18n="inst.s4.desc">Open chrome://extensions → Enable Developer mode → Load unpacked → select the extension/ folder</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cta" class="section">
+    <div class="container">
+      <div class="cta-box" data-tilt>
+        <div class="cta-orb"></div>
+        <h2 class="cta-title">
+          <span data-i18n="cta.title1">Ready to Give Claude</span><br>
+          <span class="gradient-text" data-i18n="cta.title2">the Browser?</span>
+        </h2>
+        <p data-i18n="cta.subtitle">Open source · MIT License · One command to start</p>
+        <div class="cta-cmd">
+          <code>npm install -g chrome-agent-mcp</code>
+          <button class="cta-copy code-copy" data-i18n="copy.btn">Copy</button>
+        </div>
+        <div class="cta-links">
+          <a href="https://github.com/otaviosenne/chrome-agent-mcp" class="btn-primary" target="_blank" rel="noopener" data-i18n="cta.github">View on GitHub</a>
+          <a href="https://www.npmjs.com/package/chrome-agent-mcp" class="btn-ghost" target="_blank" rel="noopener" data-i18n="cta.npm">View on npm</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <div><span class="nav-logo-icon">🤖</span><span>chrome-agent-mcp</span></div>
+        <p data-i18n="foot.tagline">Full Chrome control for AI agents via the Model Context Protocol</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h5 data-i18n="foot.links">Links</h5>
+          <a href="https://github.com/otaviosenne/chrome-agent-mcp" target="_blank" rel="noopener" data-i18n="foot.github">GitHub</a>
+          <a href="https://www.npmjs.com/package/chrome-agent-mcp" target="_blank" rel="noopener" data-i18n="foot.npm">npm</a>
+          <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP Spec</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span data-i18n="foot.license">MIT License</span>
+      <span>·</span>
+      <span data-i18n="foot.author">by Otavio Senne</span>
+    </div>
+  </footer>
+
+  <script src="scripts/i18n.js"></script>
+  <script src="scripts/cursor.js"></script>
+  <script src="scripts/particles.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="scripts/animations.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+</html>
