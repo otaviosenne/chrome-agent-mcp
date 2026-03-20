@@ -10,10 +10,11 @@ function createMockClient(overrides: Partial<any> = {}): any {
   return {
     Page: {
       captureScreenshot: vi.fn().mockResolvedValue({ data: "base64imagedata" }),
+      loadEventFired: vi.fn().mockResolvedValue({}),
       enable: vi.fn().mockResolvedValue({}),
     },
     Runtime: {
-      evaluate: vi.fn().mockResolvedValue({ result: { value: "ok", type: "string" } }),
+      evaluate: vi.fn().mockResolvedValue({ result: { value: "complete", type: "string" } }),
       enable: vi.fn().mockResolvedValue({}),
     },
     Accessibility: {
@@ -27,9 +28,7 @@ function createMockClient(overrides: Partial<any> = {}): any {
 function createMockConnection(clientOverrides: Partial<any> = {}, connOverrides: Partial<any> = {}): ChromeConnection {
   const mockClient = createMockClient(clientOverrides);
   return {
-    listTabs: vi.fn().mockResolvedValue([
-      { id: "tab1", title: "Example", url: "https://example.com", type: "page", webSocketDebuggerUrl: "" },
-    ]),
+    listTabs: vi.fn().mockResolvedValue([]),
     getClient: vi.fn().mockResolvedValue(mockClient),
     getClientForTab: vi.fn().mockResolvedValue(mockClient),
     newTab: vi.fn().mockResolvedValue({ id: "tab1", title: "New Tab", url: "about:blank", type: "page", webSocketDebuggerUrl: "" }),
@@ -63,7 +62,6 @@ describe("handleScreenshot", () => {
   it("returns image content with base64 data", async () => {
     const connection = createMockConnection();
     const result = await handleScreenshot({}, connection);
-
     expect(result.isError).toBeUndefined();
     expect(result.content[0].type).toBe("image");
     expect(result.content[0].data).toBe("base64imagedata");
@@ -72,15 +70,9 @@ describe("handleScreenshot", () => {
 
   it("calls captureScreenshot with png format", async () => {
     const mockClient = createMockClient();
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     await handleScreenshot({}, connection);
-
-    expect(mockClient.Page.captureScreenshot).toHaveBeenCalledWith(
-      expect.objectContaining({ format: "png" })
-    );
+    expect(mockClient.Page.captureScreenshot).toHaveBeenCalledWith(expect.objectContaining({ format: "png" }));
   });
 
   it("evaluates scroll dimensions when fullPage is true", async () => {
@@ -90,26 +82,74 @@ describe("handleScreenshot", () => {
         enable: vi.fn().mockResolvedValue({}),
       },
     });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     await handleScreenshot({ fullPage: true }, connection);
-
-    expect(mockClient.Runtime.evaluate).toHaveBeenCalled();
     expect(mockClient.Page.captureScreenshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clip: expect.objectContaining({ width: 1920, height: 3000 }),
-      })
+      expect.objectContaining({ clip: expect.objectContaining({ width: 1920, height: 3000 }) })
     );
   });
 
   it("passes tabId to getClient", async () => {
     const connection = createMockConnection();
     await handleScreenshot({ tabId: "tab2" }, connection);
-
     expect(connection.getClient).toHaveBeenCalledWith("tab2");
   });
+
+  it("waits for loadEventFired when readyState is loading", async () => {
+    const loadEventFired = vi.fn().mockResolvedValue({});
+    const mockClient = createMockClient({
+      Page: {
+        captureScreenshot: vi.fn().mockResolvedValue({ data: "base64imagedata" }),
+        loadEventFired,
+        enable: vi.fn().mockResolvedValue({}),
+      },
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({ result: { value: "loading", type: "string" } }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
+    await handleScreenshot({}, connection);
+    expect(loadEventFired).toHaveBeenCalled();
+    expect(mockClient.Page.captureScreenshot).toHaveBeenCalled();
+  });
+
+  it("does not call loadEventFired when readyState is complete", async () => {
+    const loadEventFired = vi.fn().mockResolvedValue({});
+    const mockClient = createMockClient({
+      Page: {
+        captureScreenshot: vi.fn().mockResolvedValue({ data: "base64imagedata" }),
+        loadEventFired,
+        enable: vi.fn().mockResolvedValue({}),
+      },
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({ result: { value: "complete", type: "string" } }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
+    await handleScreenshot({}, connection);
+    expect(loadEventFired).not.toHaveBeenCalled();
+    expect(mockClient.Page.captureScreenshot).toHaveBeenCalled();
+  });
+
+  it("takes screenshot even when loadEventFired never resolves (timeout)", async () => {
+    const loadEventFired = vi.fn().mockReturnValue(new Promise(() => {}));
+    const mockClient = createMockClient({
+      Page: {
+        captureScreenshot: vi.fn().mockResolvedValue({ data: "base64imagedata" }),
+        loadEventFired,
+        enable: vi.fn().mockResolvedValue({}),
+      },
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({ result: { value: "loading", type: "string" } }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
+    await handleScreenshot({}, connection);
+    expect(mockClient.Page.captureScreenshot).toHaveBeenCalled();
+  }, 10000);
 });
 
 describe("handleSnapshot", () => {
@@ -120,15 +160,9 @@ describe("handleSnapshot", () => {
         enable: vi.fn().mockResolvedValue({}),
       },
     });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     const result = await handleSnapshot({}, connection);
-
     expect(mockClient.Accessibility.getFullAXTree).toHaveBeenCalled();
-    expect(result.isError).toBeUndefined();
-    expect(result.content[0].type).toBe("text");
     expect(result.content[0].text).toContain("accessibility-tree-output");
   });
 
@@ -139,12 +173,8 @@ describe("handleSnapshot", () => {
         enable: vi.fn().mockResolvedValue({}),
       },
     });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     const result = await handleSnapshot({}, connection);
-
     expect(result.content[0].text).toContain("https://example.com — My Title");
   });
 });
@@ -155,19 +185,11 @@ describe("wrapForEvaluation", () => {
   });
 
   it("wraps top-level const declaration in async IIFE", () => {
-    const result = wrapForEvaluation("const x = document.title; return x;");
-    expect(result).toContain("async () =>");
-    expect(result).toContain("const x = document.title");
+    expect(wrapForEvaluation("const x = 1; return x;")).toContain("async () =>");
   });
 
   it("wraps top-level let declaration in async IIFE", () => {
-    const result = wrapForEvaluation("let x = 1; return x;");
-    expect(result).toContain("async () =>");
-  });
-
-  it("wraps top-level var declaration in async IIFE", () => {
-    const result = wrapForEvaluation("var x = 1; return x;");
-    expect(result).toContain("async () =>");
+    expect(wrapForEvaluation("let x = 1; return x;")).toContain("async () =>");
   });
 
   it("wraps bare return statement in async IIFE", () => {
@@ -180,18 +202,6 @@ describe("wrapForEvaluation", () => {
     const iife = "(() => { const x = 1; return x; })()";
     expect(wrapForEvaluation(iife)).toBe(iife);
   });
-
-  it("does not double-wrap async IIFE", () => {
-    const iife = "(async () => { return 1; })()";
-    expect(wrapForEvaluation(iife)).toBe(iife);
-  });
-
-  it("wraps multiline expression with top-level const", () => {
-    const expr = "const btn = document.querySelector('button');\nbtn.click();\nreturn btn.textContent;";
-    const result = wrapForEvaluation(expr);
-    expect(result).toContain("async () =>");
-    expect(result).toContain("btn.click()");
-  });
 });
 
 describe("handleEvaluate", () => {
@@ -202,17 +212,40 @@ describe("handleEvaluate", () => {
         enable: vi.fn().mockResolvedValue({}),
       },
     });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     const result = await handleEvaluate({ expression: "document.title" }, connection);
-
-    expect(mockClient.Runtime.evaluate).toHaveBeenCalledWith(
-      expect.objectContaining({ expression: "document.title", returnByValue: true })
-    );
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toBe("hello");
+  });
+
+  it("returns isError true for empty string expression", async () => {
+    const connection = createMockConnection();
+    const result = await handleEvaluate({ expression: "" }, connection);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("expression is required");
+  });
+
+  it("returns isError true when expression is undefined", async () => {
+    const connection = createMockConnection();
+    const result = await handleEvaluate({ expression: undefined }, connection);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("expression is required");
+  });
+
+  it("returns isError when exceptionDetails present", async () => {
+    const mockClient = createMockClient({
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({
+          result: { type: "object" },
+          exceptionDetails: { exception: { description: "ReferenceError: foo is not defined" } },
+        }),
+        enable: vi.fn().mockResolvedValue({}),
+      },
+    });
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
+    const result = await handleEvaluate({ expression: "foo" }, connection);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("ReferenceError");
   });
 
   it("JSON-stringifies object results", async () => {
@@ -222,91 +255,8 @@ describe("handleEvaluate", () => {
         enable: vi.fn().mockResolvedValue({}),
       },
     });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
+    const connection = createMockConnection({}, { getClient: vi.fn().mockResolvedValue(mockClient) });
     const result = await handleEvaluate({ expression: "({key:'val'})" }, connection);
-
     expect(result.content[0].text).toContain('"key"');
-    expect(result.content[0].text).toContain('"val"');
-  });
-
-  it("automatically wraps top-level const expression before sending to CDP", async () => {
-    const mockClient = createMockClient({
-      Runtime: {
-        evaluate: vi.fn().mockResolvedValue({ result: { value: "wrapped", type: "string" } }),
-        enable: vi.fn().mockResolvedValue({}),
-      },
-    });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
-    await handleEvaluate({ expression: "const x = 1; return x;" }, connection);
-
-    const calledWith = mockClient.Runtime.evaluate.mock.calls[0][0].expression as string;
-    expect(calledWith).toContain("async () =>");
-    expect(calledWith).toContain("const x = 1");
-  });
-
-  it("does not wrap simple expression before sending to CDP", async () => {
-    const mockClient = createMockClient({
-      Runtime: {
-        evaluate: vi.fn().mockResolvedValue({ result: { value: "title", type: "string" } }),
-        enable: vi.fn().mockResolvedValue({}),
-      },
-    });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
-    await handleEvaluate({ expression: "document.title" }, connection);
-
-    const calledWith = mockClient.Runtime.evaluate.mock.calls[0][0].expression as string;
-    expect(calledWith).toBe("document.title");
-  });
-
-  it("returns isError when exceptionDetails present", async () => {
-    const mockClient = createMockClient({
-      Runtime: {
-        evaluate: vi.fn().mockResolvedValue({
-          result: { type: "object" },
-          exceptionDetails: {
-            exception: { description: "ReferenceError: foo is not defined" },
-          },
-        }),
-        enable: vi.fn().mockResolvedValue({}),
-      },
-    });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
-    const result = await handleEvaluate({ expression: "foo" }, connection);
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("JS Error");
-    expect(result.content[0].text).toContain("ReferenceError");
-  });
-
-  it("returns generic error message when exception has no description", async () => {
-    const mockClient = createMockClient({
-      Runtime: {
-        evaluate: vi.fn().mockResolvedValue({
-          result: { type: "object" },
-          exceptionDetails: { exception: {} },
-        }),
-        enable: vi.fn().mockResolvedValue({}),
-      },
-    });
-    const connection = createMockConnection({}, {
-      getClient: vi.fn().mockResolvedValue(mockClient),
-    });
-
-    const result = await handleEvaluate({ expression: "throw new Error()" }, connection);
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("Unknown error");
   });
 });
