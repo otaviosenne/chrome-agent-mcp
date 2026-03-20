@@ -21,7 +21,7 @@ function makeFailingFn(message = "fail"): () => Promise<ToolResult> {
 describe("executeResilient - happy path", () => {
   it("returns result immediately when fn resolves within timeout", async () => {
     const fn = makeSuccessFn();
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     const result = await executeResilient(fn, true, onFallback);
 
@@ -31,7 +31,7 @@ describe("executeResilient - happy path", () => {
 
   it("calls fn exactly once on success", async () => {
     const fn = makeSuccessFn();
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     await executeResilient(fn, false, onFallback);
 
@@ -50,7 +50,7 @@ describe("executeResilient - fallback path", () => {
 
   it("calls onFallback when all retries fail", async () => {
     const fn = makeFailingFn("timeout");
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
     const successAfterFallback = vi.fn().mockResolvedValue(SUCCESS_RESULT);
 
     let callCount = 0;
@@ -69,7 +69,7 @@ describe("executeResilient - fallback path", () => {
 
   it("returns isError result when fallback fn also fails", async () => {
     const fn = makeFailingFn("primary fail");
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     const alwaysFails = vi.fn().mockRejectedValue(new Error("always fails"));
 
@@ -83,7 +83,7 @@ describe("executeResilient - fallback path", () => {
 
   it("error result includes last error message", async () => {
     const alwaysFails = vi.fn().mockRejectedValue(new Error("specific error message"));
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     const promise = executeResilient(alwaysFails, false, onFallback);
     await vi.runAllTimersAsync();
@@ -118,7 +118,7 @@ describe("executeResilient - idempotent mode", () => {
       return Promise.resolve(SUCCESS_RESULT);
     });
 
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     let firstCall = true;
     const smartFn = vi.fn().mockImplementation(() => {
@@ -154,7 +154,7 @@ describe("executeResilient - sequential retry", () => {
       return Promise.resolve(SUCCESS_RESULT);
     });
 
-    const onFallback = vi.fn().mockResolvedValue(undefined);
+    const onFallback = vi.fn().mockResolvedValue(false);
 
     const promise = executeResilient(fn, false, onFallback);
     await vi.runAllTimersAsync();

@@ -45,11 +45,14 @@ async function sequentialRetry(
   throw lastError;
 }
 
-function fallbackErrorResult(message: string): ToolResult {
+function buildErrorResult(message: string, fallbackOpened: boolean): ToolResult {
+  const hint = fallbackOpened
+    ? "A new Chrome group was opened — please retry your action in the new group."
+    : "Please retry your action or check that Chrome is still running.";
   return {
     content: [{
       type: "text",
-      text: `All attempts failed. A new Chrome group was opened — please retry your action in the new group.\nLast error: ${message}`,
+      text: `All attempts failed. ${hint}\nLast error: ${message}`,
     }],
     isError: true,
   };
@@ -58,7 +61,7 @@ function fallbackErrorResult(message: string): ToolResult {
 export async function executeResilient(
   fn: () => Promise<ToolResult>,
   isIdempotent: boolean,
-  onFallback: () => Promise<void>
+  onFallback: () => Promise<boolean>
 ): Promise<ToolResult> {
   try {
     return await withTimeout(fn(), PRIMARY_TIMEOUT_MS);
@@ -68,19 +71,21 @@ export async function executeResilient(
         ? await raceParallelAttempts(fn, 2, RETRY_TIMEOUT_MS)
         : await sequentialRetry(fn, 2, RETRY_TIMEOUT_MS);
     } catch {
+      let fallbackOpened = false;
       try {
-        await onFallback();
+        fallbackOpened = await onFallback();
         return await withTimeout(fn(), RETRY_TIMEOUT_MS);
       } catch (finalError) {
         const message = finalError instanceof Error ? finalError.message : String(finalError);
-        return fallbackErrorResult(message);
+        return buildErrorResult(message, fallbackOpened);
       }
     }
   }
 }
 
-export async function openFallbackGroup(connection: ChromeConnection): Promise<void> {
+export async function openFallbackGroup(connection: ChromeConnection): Promise<boolean> {
   connection.tabGroup.resetForNewSession();
   await connection.tabGroup.initialize();
   await connection.newTab("about:blank");
+  return true;
 }

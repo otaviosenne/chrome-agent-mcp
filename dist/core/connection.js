@@ -38,6 +38,8 @@ export class ChromeConnection {
             const newTab = await this.newTab();
             return this.getClientForTab(newTab.id);
         }
+        if (tabId)
+            this.activeTabId = tabId;
         return this.getClientForTab(resolvedId);
     }
     async getClientForTab(tabId) {

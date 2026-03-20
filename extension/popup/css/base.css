@@ -192,6 +192,12 @@ header {
   color: #f0ebe5;
 }
 
+.group-last-activity {
+  font-size: 10px;
+  color: rgba(240, 235, 229, 0.4);
+  white-space: nowrap;
+}
+
 .group-tabs {
   border-top: 1px solid rgba(200, 120, 80, 0.12);
   padding: 5px 10px 7px 10px;

@@ -16,7 +16,7 @@ import { devtoolsNetworkToolDefinition, handleDevtoolsNetwork } from "./tools/de
 import { devtoolsElementsToolDefinition, handleDevtoolsElements } from "./tools/devtools/elements.js";
 import { devtoolsStorageToolDefinition, handleDevtoolsStorage } from "./tools/devtools/storage.js";
 import { chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition, handleChromeWindows, handleChromeFocus, handleChromeExtensions, } from "./tools/browser.js";
-import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, renameClaudeSession, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
+import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
 import { executeResilient, openFallbackGroup } from "./core/resilience.js";
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
 const connection = new ChromeConnection(DEBUG_PORT);
@@ -29,6 +29,8 @@ async function autoSyncOnce() {
     if (!currentPath || currentPath === lastSyncedSessionPath)
         return;
     lastSyncedSessionPath = currentPath;
+    if (connection.tabGroup.hasOwnedTabs())
+        return;
     await connection.tabGroup.resetForNewSession();
     await connection.tabGroup.initialize();
     const name = connection.tabGroup.getGroupName();
@@ -37,7 +39,7 @@ async function autoSyncOnce() {
         return;
     const currentTitle = getCurrentSessionTitle();
     if (currentTitle !== name) {
-        renameClaudeSession(name);
+        lastWrittenAutoSyncGroup = name;
         writeAutoSync(name, color);
     }
 }
@@ -106,7 +108,6 @@ const SKIP_FAVICON_ACTIONS = new Set(["list", "close", "switch", "done"]);
 const NAVIGATION_TOOLS = new Set(["browser_navigate", "browser_navigate_back", "browser_navigate_forward", "browser_reload"]);
 const STOP_DELAY_MS = 25000;
 const BLANK_TAB_STOP_DELAY_MS = 2000;
-const DONE_RESTORE_DELAY_MS = 3000;
 const stopTimers = new Map();
 function scheduleStop(tabId, groupName, delayMs = STOP_DELAY_MS) {
     const existing = stopTimers.get(tabId);
@@ -116,7 +117,6 @@ function scheduleStop(tabId, groupName, delayMs = STOP_DELAY_MS) {
         stopTimers.delete(tabId);
         await faviconManager.markDone(tabId, connection);
         bridge.log({ type: "tab_done", tool: "browser_tabs:stop", tabId, groupName, description: "inativo" });
-        setTimeout(() => faviconManager.stopActivity(tabId, connection), DONE_RESTORE_DELAY_MS);
     }, delayMs);
     stopTimers.set(tabId, timer);
 }
@@ -155,7 +155,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (doneTabId) {
             cancelStop(doneTabId);
             await faviconManager.markDone(doneTabId, connection);
-            setTimeout(() => faviconManager.stopActivity(doneTabId, connection), DONE_RESTORE_DELAY_MS);
             bridge.log({ type: "tab_done", tool: "browser_tabs:done", tabId: doneTabId, groupName, description: "finalizando tarefa" });
         }
         return { content: [{ type: "text", text: "Tab marked as done" }] };
@@ -206,6 +205,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             cancelStop(tabId);
             await faviconManager.stopActivity(tabId, connection);
             bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName, description: "fechando tab" });
+            if (!connection.tabGroup.hasOwnedTabs())
+                lastWrittenAutoSyncGroup = null;
         }
         else if (tabId) {
             scheduleStop(tabId, groupName);

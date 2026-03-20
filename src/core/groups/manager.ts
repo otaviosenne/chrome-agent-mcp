@@ -45,7 +45,7 @@ export class TabGroupManager {
         this.groupColor = shared.groupColor as GroupColor;
         this.chromeGroupId = shared.chromeGroupId;
       } else {
-        this.assignNewGroupIdentity();
+        this.restoreFromLastGroup();
       }
     }
 
@@ -53,6 +53,17 @@ export class TabGroupManager {
     process.once("exit", cleanup);
     process.once("SIGINT", () => { cleanup(); process.exit(0); });
     process.once("SIGTERM", () => { cleanup(); process.exit(0); });
+  }
+
+  private restoreFromLastGroup(): void {
+    const last = this.store.loadLastGroup(this.debugPort);
+    if (last && isAnimalName(last.groupName)) {
+      this.groupName = last.groupName;
+      this.groupColor = last.groupColor as GroupColor;
+      this.chromeGroupId = last.chromeGroupId;
+    } else {
+      this.assignNewGroupIdentity();
+    }
   }
 
   private async restoreFromState(saved: PersistedState): Promise<void> {
@@ -122,6 +133,7 @@ export class TabGroupManager {
     this.initPromise = null;
     this.extensionClient = null;
     this.store.deleteState();
+    this.store.deleteLastGroup(this.debugPort);
     this.assignNewGroupIdentity();
   }
 

@@ -43,7 +43,6 @@
   transform: scale(1.02);
 }
 
-.screenshot-copy-btn { transition: opacity 0.15s, color 0.15s, background 0.15s; }
 #copy-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
 #clear-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
 
@@ -149,7 +148,7 @@
   border-radius: 50%;
   border: 1.5px solid rgba(0, 0, 0, 0.3);
   z-index: 10;
-  pointer-events: none;
+  cursor: default;
 }
 
 .screenshot-thumb {
@@ -168,33 +167,6 @@
   display: block;
 }
 
-.screenshot-copy-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(14, 14, 15, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  color: #9a9088;
-  cursor: pointer;
-  font-size: 11px;
-  font-family: inherit;
-  padding: 3px 7px;
-  opacity: 0;
-  backdrop-filter: blur(4px);
-  z-index: 10;
-}
-
-.screenshot-wrapper:hover .screenshot-copy-btn {
-  opacity: 1;
-}
-
-.screenshot-copy-btn:hover {
-  color: #60a8e0;
-  background: rgba(80, 160, 220, 0.15);
-  border-color: rgba(80, 160, 220, 0.35);
-}
-
 .empty-screenshots {
   grid-column: 1 / -1;
   padding: 36px 0;
@@ -211,11 +183,43 @@
   backdrop-filter: blur(4px);
 }
 
-#modal-img {
+.modal-frame {
   position: relative;
   max-width: 95%;
   max-height: 95%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#modal-img {
+  width: 100%;
+  max-height: calc(95vh - 44px);
   border-radius: 10px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
   object-fit: contain;
+  display: block;
+}
+
+#modal-copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(14, 14, 15, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #9a9088;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 9px;
+  backdrop-filter: blur(4px);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+
+#modal-copy-btn:hover {
+  color: #60a8e0;
+  background: rgba(80, 160, 220, 0.15);
+  border-color: rgba(80, 160, 220, 0.35);
 }

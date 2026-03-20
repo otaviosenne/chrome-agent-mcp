@@ -12,6 +12,7 @@ export declare class TabGroupManager {
     constructor(debugPort: number);
     initialize(): Promise<void>;
     private doInitialize;
+    private restoreFromLastGroup;
     private restoreFromState;
     private fetchLivePageIds;
     private assignNewGroupIdentity;

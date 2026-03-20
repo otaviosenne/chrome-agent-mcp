@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
+import { readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { ChromeConnection } from "../core/connection.js";
@@ -81,28 +81,16 @@ function findCurrentSessionFile(): { file: string; sessionId: string } | null {
   }
 }
 
-export function renameClaudeSession(newTitle: string): boolean {
-  try {
-    const session = findCurrentSessionFile();
-    if (!session) return false;
-    const entry1 = JSON.stringify({ type: "custom-title", customTitle: newTitle, sessionId: session.sessionId });
-    const entry2 = JSON.stringify({ type: "agent-name", agentName: newTitle, sessionId: session.sessionId });
-    appendFileSync(session.file, `${entry1}\n${entry2}\n`);
-    writeFileSync(join(homedir(), ".claude", ".pending_rename"), newTitle, "utf8");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function writeAutoSync(groupName: string, groupColor: string): void {
   if (!groupName) return;
   try {
     const claudeDir = join(homedir(), ".claude");
     const claudeColor = chromeToClaude(groupColor) ?? "default";
+    const kittyPid = process.env.KITTY_PID;
+    const pidPayload = kittyPid ? `kitty:${kittyPid}` : `mcp:${process.pid}`;
     writeFileSync(join(claudeDir, ".pending_rename"), groupName, "utf8");
     writeFileSync(join(claudeDir, ".pending_color"), claudeColor, "utf8");
-    writeFileSync(join(claudeDir, ".pending_pid"), `mcp:${process.pid}`, "utf8");
+    writeFileSync(join(claudeDir, ".pending_pid"), pidPayload, "utf8");
   } catch {}
 }
 
@@ -119,13 +107,11 @@ export async function handleSessionSync(
     const newName = raw ? `#${groupNum} ${raw}` : `#${groupNum}`;
 
     const chromeOk = await tabGroup.renameGroup(newName);
-    const claudeOk = renameClaudeSession(newName);
 
     const parts: string[] = [];
-    if (claudeOk) parts.push(`Claude chat renamed to "${newName}"`);
-    else parts.push(`Claude rename failed (run manually: /rename ${newName})`);
     if (chromeOk) parts.push(`Chrome group renamed to "${newName}"`);
     else parts.push(`Chrome group not reachable (no active tab group yet?)`);
+    parts.push(`/rename ${newName}`);
 
     return { content: [{ type: "text", text: parts.join("\n") }] };
   }

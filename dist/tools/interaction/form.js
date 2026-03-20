@@ -73,7 +73,7 @@ export const fillFormToolDefinition = {
 export async function handleScroll(args, connection) {
     const client = await connection.getClient(args.tabId);
     const direction = args.direction;
-    const amount = args.amount || 300;
+    const amount = Number(args.amount) || 300;
     const deltaX = direction === "right" ? amount : direction === "left" ? -amount : 0;
     const deltaY = direction === "down" ? amount : direction === "up" ? -amount : 0;
     if (args.ref) {

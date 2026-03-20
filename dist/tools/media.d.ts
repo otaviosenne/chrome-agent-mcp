@@ -6,4 +6,5 @@ export declare const snapshotToolDefinition: Tool;
 export declare const evaluateToolDefinition: Tool;
 export declare function handleScreenshot(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
 export declare function handleSnapshot(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;
+export declare function wrapForEvaluation(expression: string): string;
 export declare function handleEvaluate(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;

@@ -12,7 +12,7 @@ const CHROME_COLOR_CSS = {
   orange: "#ea580c",
 };
 
-function chromeColorToCss(color) {
+export function chromeColorToCss(color) {
   return CHROME_COLOR_CSS[color] || CHROME_COLOR_CSS.grey;
 }
 
@@ -30,29 +30,25 @@ export function formatTime(timestamp) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function aliveGroupNames() {
-  const aliveSet = new Set(state.aliveSessions);
-  if (aliveSet.size === 0) return new Set();
+function formatRelative(timestamp) {
+  if (!timestamp) return "";
+  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const mins = Math.floor(diffSec / 60);
+  const secs = diffSec % 60;
+  if (mins < 60) return `${mins}m ${secs}s ago`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hrs}h ${remMins}m ago`;
+}
 
-  const names = new Set();
-
-  for (const groupTitle of Object.keys(state.chromeGroups)) {
-    const sessionId = state.groups[groupTitle];
-    if (sessionId && aliveSet.has(sessionId)) {
-      names.add(groupTitle);
-    }
-  }
-
-  for (const [groupTitle, sessionId] of Object.entries(state.groups)) {
-    if (aliveSet.has(sessionId)) names.add(groupTitle);
-  }
-
-  return names;
+function activeGroupNames() {
+  return new Set(Object.keys(state.chromeGroups).filter(title => state.groups[title]));
 }
 
 export function renderActiveTabs() {
   const list = document.getElementById("active-tabs-list");
-  const groupNames = aliveGroupNames();
+  const groupNames = activeGroupNames();
 
   if (groupNames.size === 0) {
     list.innerHTML = '<div class="empty-active">No active tabs</div>';
@@ -75,7 +71,9 @@ export function renderActiveTabs() {
     const bridgeTabs = byGroup.get(groupName) || [];
     const chromeFallback = (state.chromeTabs[groupName] || []).map(t => ({ url: t.url, title: t.title, lastActivity: 0 }));
     const tabs = bridgeTabs.length > 0 ? bridgeTabs : chromeFallback;
-    const hasActive = bridgeTabs.some(info => now - (info.lastActivity || 0) < ACTIVE_TTL);
+    const aliveSet = new Set(state.aliveSessions);
+    const sessionId = state.groups[groupName];
+    const hasActive = !!sessionId && aliveSet.has(sessionId);
 
     const tabsHtml = tabs.length > 0
       ? tabs.map(info => {
@@ -90,11 +88,19 @@ export function renderActiveTabs() {
         }).join("")
       : '<div class="group-tab-row"><span class="tab-url" style="opacity:0.5">No open tabs</span></div>';
 
+    const groupCssColor = chromeColorToCss(state.chromeGroups[groupName]?.color);
+    const dotStyle = hasActive
+      ? `background:${groupCssColor};box-shadow:0 0 6px ${groupCssColor}80`
+      : "";
+    const groupLastActivity = bridgeTabs.reduce((max, t) => Math.max(max, t.lastActivity || 0), 0);
+    const lastActivityLabel = groupLastActivity ? formatRelative(groupLastActivity) : "";
+
     return `
       <div class="group-item">
         <div class="group-header" data-group="${groupName}">
-          <span class="pulse-dot${hasActive ? "" : " pulse-dot-idle"}"></span>
+          <span class="pulse-dot${hasActive ? "" : " pulse-dot-idle"}" style="${dotStyle}"></span>
           <span class="group-name">${groupName}</span>
+          ${lastActivityLabel ? `<span class="group-last-activity">${lastActivityLabel}</span>` : ""}
           <svg class="chevron${isExpanded ? " chevron-up" : ""}" width="10" height="6" viewBox="0 0 10 6">
             <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
           </svg>
@@ -237,35 +243,19 @@ export function renderScreenshots(sessionFilter) {
 
   grid.innerHTML = filtered.map(event => {
     const dotColor = chromeColorToCss(event.groupColor);
+    const groupLabel = event.groupName || "";
     return `
     <div class="screenshot-wrapper">
       <div class="screenshot-thumb" data-src="data:image/png;base64,${event.screenshot}">
-        <div class="screenshot-group-dot" style="background:${dotColor}"></div>
+        <div class="screenshot-group-dot" style="background:${dotColor}" title="${groupLabel}"></div>
         <img src="data:image/png;base64,${event.screenshot}" alt="Screenshot" loading="lazy" />
       </div>
-      <button class="screenshot-copy-btn" data-src="data:image/png;base64,${event.screenshot}">Copy</button>
     </div>
   `;
   }).join("");
 
   grid.querySelectorAll(".screenshot-thumb").forEach(thumb => {
     thumb.addEventListener("click", () => openModal(thumb.dataset.src));
-  });
-
-  grid.querySelectorAll(".screenshot-copy-btn").forEach(btn => {
-    btn.addEventListener("click", async e => {
-      e.stopPropagation();
-      try {
-        const res = await fetch(btn.dataset.src);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        btn.textContent = "Copied";
-        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-      } catch {
-        btn.textContent = "Failed";
-        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-      }
-    });
   });
 }
 

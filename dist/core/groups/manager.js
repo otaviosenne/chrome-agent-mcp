@@ -41,13 +41,24 @@ export class TabGroupManager {
                 this.chromeGroupId = shared.chromeGroupId;
             }
             else {
-                this.assignNewGroupIdentity();
+                this.restoreFromLastGroup();
             }
         }
         const cleanup = () => this.store.deleteState();
         process.once("exit", cleanup);
         process.once("SIGINT", () => { cleanup(); process.exit(0); });
         process.once("SIGTERM", () => { cleanup(); process.exit(0); });
+    }
+    restoreFromLastGroup() {
+        const last = this.store.loadLastGroup(this.debugPort);
+        if (last && isAnimalName(last.groupName)) {
+            this.groupName = last.groupName;
+            this.groupColor = last.groupColor;
+            this.chromeGroupId = last.chromeGroupId;
+        }
+        else {
+            this.assignNewGroupIdentity();
+        }
     }
     async restoreFromState(saved) {
         if (typeof saved.chromeGroupId !== "number")
@@ -109,6 +120,7 @@ export class TabGroupManager {
         this.initPromise = null;
         this.extensionClient = null;
         this.store.deleteState();
+        this.store.deleteLastGroup(this.debugPort);
         this.assignNewGroupIdentity();
     }
     async addTab(cdpTabId) {

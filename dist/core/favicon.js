@@ -1,66 +1,3 @@
-const DONE_SCRIPT = `
-(function() {
-  if (window.__cfInterval) { clearInterval(window.__cfInterval); window.__cfInterval = null; }
-
-  var c = document.createElement('canvas');
-  c.width = 32; c.height = 32;
-  var x = c.getContext('2d');
-  if (!x) return;
-
-  x.fillStyle = 'white';
-  x.fillRect(2, 1, 28, 20);
-  x.fillRect(2, 20, 10, 11);
-  x.fillRect(20, 20, 10, 11);
-  x.fillStyle = '#C87850';
-  x.fillRect(4, 3, 24, 17);
-  x.fillRect(4, 20, 8, 9);
-  x.fillRect(20, 20, 8, 9);
-  x.fillStyle = '#1a1a1a';
-  x.fillRect(8, 9, 4, 4);
-  x.fillRect(20, 9, 4, 4);
-  x.strokeStyle = '#1a1a1a';
-  x.lineWidth = 2;
-  x.lineCap = 'round';
-  x.beginPath();
-  x.arc(16, 14, 4, 0.1 * Math.PI, 0.9 * Math.PI);
-  x.stroke();
-
-  var dataUrl = c.toDataURL('image/png');
-  var link = window.__cfLink;
-  if (link) {
-    link.href = dataUrl;
-  } else {
-    var allLinks = document.querySelectorAll('link[rel~="icon"]');
-    window.__cfOriginals = Array.from(allLinks).map(function(l) {
-      return { rel: l.rel, type: l.getAttribute('type'), href: l.href, sizes: l.getAttribute('sizes') };
-    });
-    allLinks.forEach(function(l) { l.parentNode && l.parentNode.removeChild(l); });
-    link = document.createElement('link');
-    link.rel = 'icon';
-    link.type = 'image/png';
-    document.head.appendChild(link);
-    link.href = dataUrl;
-    window.__cfLink = link;
-    window.__cf = true;
-  }
-
-  if (!window.__cfHeadObserver) {
-    var obs = new MutationObserver(function(mutations) {
-      if (!window.__cf) return;
-      mutations.forEach(function(m) {
-        m.addedNodes.forEach(function(node) {
-          if (node.nodeName === 'LINK' && node !== window.__cfLink) {
-            var rel = node.getAttribute('rel') || '';
-            if (rel.indexOf('icon') !== -1) node.parentNode && node.parentNode.removeChild(node);
-          }
-        });
-      });
-    });
-    obs.observe(document.head, { childList: true });
-    window.__cfHeadObserver = obs;
-  }
-})();
-`;
 const START_SCRIPT = `
 (function() {
   if (window.__cf) return;
@@ -188,11 +125,7 @@ export class TabFaviconManager {
     }
     async markDone(tabId, connection) {
         this.abortedTabs.add(tabId);
-        try {
-            const client = await connection.getClientForTab(tabId);
-            await client.Runtime.evaluate({ expression: DONE_SCRIPT });
-        }
-        catch { }
+        await this.stopActivity(tabId, connection);
     }
     async stopActivity(tabId, connection) {
         try {

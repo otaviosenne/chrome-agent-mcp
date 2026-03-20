@@ -30,6 +30,16 @@ export interface PersistedState {
   ownedTabIds: string[];
 }
 
+export interface LastGroupEntry {
+  groupName: string;
+  groupColor: string;
+  chromeGroupId: number;
+}
+
+function lastGroupFilePath(debugPort: number): string {
+  return join(STATE_DIR, `${debugPort}-last.json`);
+}
+
 export class GroupStateStore {
   private readonly stateFile: string;
 
@@ -51,11 +61,43 @@ export class GroupStateStore {
       mkdirSync(STATE_DIR, { recursive: true });
       writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
     } catch {}
+
+    if (state.chromeGroupId !== null) {
+      const portMatch = this.stateFile.match(/\/(\d+)-\d+\.json$/);
+      if (portMatch) {
+        this.saveLastGroup(parseInt(portMatch[1], 10), state.groupName, state.groupColor, state.chromeGroupId);
+      }
+    }
   }
 
   deleteState(): void {
     try {
       if (existsSync(this.stateFile)) unlinkSync(this.stateFile);
+    } catch {}
+  }
+
+  loadLastGroup(debugPort: number): LastGroupEntry | null {
+    try {
+      const path = lastGroupFilePath(debugPort);
+      if (!existsSync(path)) return null;
+      return JSON.parse(readFileSync(path, "utf8")) as LastGroupEntry;
+    } catch {
+      return null;
+    }
+  }
+
+  saveLastGroup(debugPort: number, groupName: string, groupColor: string, chromeGroupId: number): void {
+    try {
+      mkdirSync(STATE_DIR, { recursive: true });
+      const entry: LastGroupEntry = { groupName, groupColor, chromeGroupId };
+      writeFileSync(lastGroupFilePath(debugPort), JSON.stringify(entry, null, 2));
+    } catch {}
+  }
+
+  deleteLastGroup(debugPort: number): void {
+    try {
+      const path = lastGroupFilePath(debugPort);
+      if (existsSync(path)) unlinkSync(path);
     } catch {}
   }
 

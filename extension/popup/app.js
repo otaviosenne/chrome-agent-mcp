@@ -1,4 +1,4 @@
-import { renderActiveTabs, renderEvents, renderScreenshots, safeHostname, formatTime } from "./tabs.js";
+import { renderActiveTabs, renderEvents, renderScreenshots, safeHostname, formatTime, chromeColorToCss } from "./tabs.js";
 
 export const state = {
   events: [],
@@ -43,7 +43,7 @@ function buildDropdownItems() {
     const sessionId = state.groups[groupTitle] || "";
     const isOrphan = state.aliveSessions.length > 0 && (!sessionId || !state.aliveSessions.includes(sessionId));
     const desc = state.descriptions[groupTitle] || "";
-    const label = desc ? `${groupTitle} — ${desc}` : groupTitle;
+    const label = groupTitle;
     items.push({ value: sessionId, label, orphan: isOrphan, groupTitle });
   }
 
@@ -69,7 +69,7 @@ export function updateSessionFilter() {
     <div class="dropdown-item ${item.value === sessionFilter ? "selected" : ""} ${item.orphan && item.value !== "all" ? "orphan" : ""}"
          data-value="${item.value}"
          ${item.orphan && item.value !== "all" ? `data-tooltip="Nenhum Claude Code associado a este grupo"` : ""}>
-      <span class="status-dot ${item.orphan && item.value !== "all" ? "dot-orphan" : item.value !== "all" ? "dot-active" : "dot-none"}"></span>
+      <span class="status-dot" style="${item.groupTitle ? `background:${chromeColorToCss(state.chromeGroups[item.groupTitle]?.color)};box-shadow:0 0 4px ${chromeColorToCss(state.chromeGroups[item.groupTitle]?.color)}80` : ""}"></span>
       <span class="item-label">${item.label}</span>
     </div>
   `).join("");
@@ -143,6 +143,9 @@ function setupMessageListener() {
       state.chromeGroups = msg.chromeGroups || {};
       updateSessionFilter();
       renderActiveTabs();
+    } else if (msg.type === "chrome_tabs_update") {
+      state.chromeTabs = msg.chromeTabs || {};
+      renderActiveTabs();
     }
   });
 }
@@ -197,10 +200,12 @@ function setupFilterBar() {
   });
 
   document.getElementById("clear-btn").addEventListener("click", () => {
+    const isScreenshot = e => e.type === "screenshot" && e.screenshot;
+    const inScope = e => sessionFilter === "all" || e.sessionId === sessionFilter;
     if (currentView === "log") {
-      state.events = state.events.filter(e => e.type === "screenshot" && e.screenshot);
+      state.events = state.events.filter(e => isScreenshot(e) || !inScope(e));
     } else {
-      state.events = state.events.filter(e => e.type !== "screenshot");
+      state.events = state.events.filter(e => !isScreenshot(e) || !inScope(e));
     }
     renderAll();
   });
@@ -221,7 +226,8 @@ function init() {
 
   document.getElementById("modal").addEventListener("click", closeModal);
 
-  drawLogo();
+drawLogo();
+  setInterval(renderActiveTabs, 1000);
 }
 
 init();

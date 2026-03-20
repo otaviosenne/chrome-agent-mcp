@@ -3,7 +3,7 @@ import { setRobotIcon, startIconAnimation, stopIconAnimation } from "./icon.js";
 
 export const MAX_EVENTS = 500;
 export const MAX_SCREENSHOTS = 20;
-export const SESSION_TTL_MS = 40000;
+export const SESSION_TTL_MS = 5 * 60 * 1000;
 
 const STORAGE_SIZE_LIMIT_BYTES = 3 * 1024 * 1024;
 
@@ -67,6 +67,8 @@ async function restoreActiveTabs() {
   } catch {}
 }
 
+const RESTORE_TTL_MS = 5 * 60 * 1000;
+
 async function restoreSessionAlive() {
   try {
     const [session, local] = await Promise.all([
@@ -77,7 +79,7 @@ async function restoreSessionAlive() {
     if (stored) {
       const now = Date.now();
       for (const [k, v] of Object.entries(stored)) {
-        if (now - v < SESSION_TTL_MS) sessionLastAlive.set(k, now);
+        if (now - v < RESTORE_TTL_MS) sessionLastAlive.set(k, now);
       }
     }
   } catch {}
@@ -127,7 +129,7 @@ export function enforceScreenshotLimit() {
   }
 }
 
-async function buildChromeTabs() {
+export async function buildChromeTabs() {
   const result = {};
   try {
     const tabs = await chrome.tabs.query({});

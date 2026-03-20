@@ -18,7 +18,10 @@ export const screenshotToolDefinition = {
 };
 export const snapshotToolDefinition = {
     name: "browser_snapshot",
-    description: "Capture accessibility snapshot of a page. Returns the page structure with element refs for interaction. Use instead of screenshots to find elements to click/type. Supports targeting a specific tab via tabId.",
+    description: "Capture accessibility snapshot of a page. Returns the page structure with element refs for interaction. " +
+        "Use instead of screenshots to find elements to click/type. " +
+        "IMPORTANT: refs go stale after any DOM change or navigation — always re-snapshot before clicking if the page may have changed. " +
+        "Supports targeting a specific tab via tabId.",
     inputSchema: {
         type: "object",
         properties: {
@@ -31,13 +34,16 @@ export const snapshotToolDefinition = {
 };
 export const evaluateToolDefinition = {
     name: "browser_evaluate",
-    description: "Evaluate a JavaScript expression in a page context. Supports targeting a specific tab via tabId.",
+    description: "Evaluate JavaScript in a page context. " +
+        "IMPORTANT: top-level const/let/var declarations persist across calls — always wrap multi-statement code in an IIFE: (() => { const x = ...; return x; })(). " +
+        "Never use bare 'return' at top level. Max timeout: 10s — avoid setTimeout > 10000ms. " +
+        "Supports targeting a specific tab via tabId.",
     inputSchema: {
         type: "object",
         properties: {
             expression: {
                 type: "string",
-                description: "JavaScript expression or async function body to evaluate",
+                description: "JavaScript expression or IIFE to evaluate",
             },
             tabId: {
                 type: "string",
@@ -74,9 +80,18 @@ export async function handleSnapshot(args, connection) {
     const tree = formatAccessibilityTree(nodes);
     return { content: [{ type: "text", text: `Page: ${pageInfo.value}\n\n${tree}` }] };
 }
+const NEEDS_IIFE_RE = /(?:^|\n)\s*(?:const |let |var |return )/;
+export function wrapForEvaluation(expression) {
+    const trimmed = expression.trim();
+    if (trimmed.startsWith("("))
+        return expression;
+    if (!NEEDS_IIFE_RE.test(trimmed))
+        return expression;
+    return `(async () => {\n${trimmed}\n})()`;
+}
 export async function handleEvaluate(args, connection) {
     const client = await connection.getClient(args.tabId);
-    const expression = args.expression;
+    const expression = wrapForEvaluation(args.expression);
     const { result, exceptionDetails } = await client.Runtime.evaluate({
         expression,
         returnByValue: true,

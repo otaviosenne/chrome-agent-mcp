@@ -8,6 +8,7 @@ import {
   getAliveSessions,
   restorePromise,
   buildStatePayloadFull,
+  buildChromeTabs,
   initState,
   SESSION_TTL_MS,
 } from "./commands.js";
@@ -37,6 +38,9 @@ export function broadcastEvent(event) {
     chromeGroups: Object.fromEntries(chromeGroups),
     aliveSessions: getAliveSessions(),
   });
+  if (event.type === "tab_open" || event.type === "tab_close" || event.type === "tab_done") {
+    buildChromeTabs().then(chromeTabs => broadcastToPopups({ type: "chrome_tabs_update", chromeTabs }));
+  }
 }
 
 function broadcastChromeGroups() {

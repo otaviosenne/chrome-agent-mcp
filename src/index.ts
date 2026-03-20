@@ -34,7 +34,7 @@ import {
   chromeWindowsToolDefinition, chromeFocusToolDefinition, chromeExtensionsToolDefinition,
   handleChromeWindows, handleChromeFocus, handleChromeExtensions,
 } from "./tools/browser.js";
-import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, renameClaudeSession, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
+import { sessionSyncToolDefinition, handleSessionSync, writeAutoSync, getCurrentSessionPath, getCurrentSessionTitle } from "./tools/session.js";
 import { executeResilient, openFallbackGroup } from "./core/resilience.js";
 
 const DEBUG_PORT = parseInt(process.env.CHROME_DEBUG_PORT ?? "9222", 10);
@@ -58,7 +58,6 @@ async function autoSyncOnce(): Promise<void> {
   const currentTitle = getCurrentSessionTitle();
   if (currentTitle !== name) {
     lastWrittenAutoSyncGroup = name;
-    renameClaudeSession(name);
     writeAutoSync(name, color);
   }
 }
@@ -135,7 +134,6 @@ const SKIP_FAVICON_ACTIONS = new Set(["list", "close", "switch", "done"]);
 const NAVIGATION_TOOLS = new Set(["browser_navigate", "browser_navigate_back", "browser_navigate_forward", "browser_reload"]);
 const STOP_DELAY_MS = 25000;
 const BLANK_TAB_STOP_DELAY_MS = 2000;
-const DONE_RESTORE_DELAY_MS = 3000;
 
 const stopTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -146,7 +144,6 @@ function scheduleStop(tabId: string, groupName: string, delayMs: number = STOP_D
     stopTimers.delete(tabId);
     await faviconManager.markDone(tabId, connection);
     bridge.log({ type: "tab_done", tool: "browser_tabs:stop", tabId, groupName, description: "inativo" });
-    setTimeout(() => faviconManager.stopActivity(tabId, connection), DONE_RESTORE_DELAY_MS);
   }, delayMs);
   stopTimers.set(tabId, timer);
 }
@@ -193,7 +190,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (doneTabId) {
       cancelStop(doneTabId);
       await faviconManager.markDone(doneTabId, connection);
-      setTimeout(() => faviconManager.stopActivity(doneTabId, connection), DONE_RESTORE_DELAY_MS);
       bridge.log({ type: "tab_done", tool: "browser_tabs:done", tabId: doneTabId, groupName, description: "finalizando tarefa" });
     }
     return { content: [{ type: "text", text: "Tab marked as done" }] } as any;
