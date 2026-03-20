@@ -24,6 +24,6 @@ export declare const sessionSyncToolDefinition: {
     };
 };
 export declare function getCurrentSessionPath(): string | null;
-export declare function getCurrentSessionTitle(): string | null;
+export declare function getCurrentSessionTitle(sessionPath?: string): string | null;
 export declare function writeAutoSync(groupName: string, groupColor: string): void;
 export declare function handleSessionSync(args: Record<string, unknown>, connection: ChromeConnection): Promise<ToolResult>;

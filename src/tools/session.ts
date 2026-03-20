@@ -81,12 +81,30 @@ function findCurrentSessionFile(): { file: string; sessionId: string } | null {
   }
 }
 
+function findAncestorKittyPid(): string | null {
+  try {
+    let pid = process.pid;
+    while (pid > 1) {
+      const status = readFileSync(`/proc/${pid}/status`, "utf8");
+      const match = status.match(/^PPid:\s+(\d+)/m);
+      if (!match) break;
+      const ppid = parseInt(match[1], 10);
+      const comm = readFileSync(`/proc/${ppid}/comm`, "utf8").trim();
+      if (comm === "kitty") return String(ppid);
+      pid = ppid;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function writeAutoSync(groupName: string, groupColor: string): void {
   if (!groupName) return;
   try {
     const claudeDir = join(homedir(), ".claude");
     const claudeColor = chromeToClaude(groupColor) ?? "default";
-    const kittyPid = process.env.KITTY_PID;
+    const kittyPid = findAncestorKittyPid() ?? process.env.KITTY_PID;
     const pidPayload = kittyPid ? `kitty:${kittyPid}` : `mcp:${process.pid}`;
     writeFileSync(join(claudeDir, ".pending_rename"), groupName, "utf8");
     writeFileSync(join(claudeDir, ".pending_color"), claudeColor, "utf8");
