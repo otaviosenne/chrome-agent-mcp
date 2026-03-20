@@ -8,6 +8,9 @@ function createMockClient(overrides: Partial<any> = {}): any {
   return {
     DOM: {
       resolveNode: vi.fn().mockResolvedValue({ object: { objectId: "obj-1" } }),
+      getBoxModel: vi.fn().mockResolvedValue({
+        model: { content: [[0, 0], [100, 0], [100, 50], [0, 50]] },
+      }),
       enable: vi.fn().mockResolvedValue({}),
     },
     Runtime: {
