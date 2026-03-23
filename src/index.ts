@@ -44,6 +44,7 @@ const bridge = new ExtensionBridge(DEBUG_PORT);
 
 let lastSyncedSessionPath: string | null = null;
 let lastWrittenAutoSyncGroup: string | null = null;
+const agentBindings = new Map<string, string>();
 
 async function autoSyncOnce(): Promise<void> {
   const currentPath = getCurrentSessionPath();
@@ -124,6 +125,15 @@ const IDEMPOTENT_TOOLS = new Set([
   "session_sync",
 ]);
 
+const TOOLS_INDEPENDENT_OF_TAB = new Set([
+  "browser_tabs",
+  "browser_navigate",
+  "chrome_windows",
+  "chrome_focus",
+  "chrome_extensions",
+  "session_sync",
+]);
+
 function isIdempotentCall(name: string, args: Record<string, unknown>): boolean {
   if (IDEMPOTENT_TOOLS.has(name)) return true;
   if (name === "browser_tabs" && args.action === "list") return true;
@@ -148,6 +158,18 @@ function scheduleStop(tabId: string, groupName: string, delayMs: number = STOP_D
   stopTimers.set(tabId, timer);
 }
 
+function scheduleBlankTabClose(tabId: string): void {
+  setTimeout(async () => {
+    try {
+      const targets = await (connection as any).listTabs();
+      const tab = targets.find((t: any) => t.id === tabId);
+      if (tab && (tab.url === "about:blank" || tab.url === "")) {
+        await connection.closeTab(tabId);
+      }
+    } catch {}
+  }, BLANK_TAB_STOP_DELAY_MS + 500);
+}
+
 function cancelStop(tabId: string): void {
   const existing = stopTimers.get(tabId);
   if (existing) {
@@ -170,7 +192,11 @@ const SKIP_BRIDGE_ACTIONS = new Set(["list", "switch"]);
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   await autoSyncOnce();
-  const { name, arguments: args = {} } = request.params;
+  const { name, arguments: rawArgs = {} } = request.params;
+  const agentId = rawArgs.agentId as string | undefined;
+  const args: Record<string, unknown> = agentId && !rawArgs.tabId
+    ? { ...rawArgs, tabId: agentBindings.get(agentId) }
+    : { ...rawArgs };
   const handler = toolHandlers[name];
 
   if (!handler) {
@@ -217,20 +243,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     });
   }
 
+  if (!TOOLS_INDEPENDENT_OF_TAB.has(name) && !connection.tabGroup.hasOwnedTabs()) {
+    return {
+      content: [{ type: "text", text: "No active tab — use browser_navigate with a URL to start browsing." }],
+      isError: true,
+    } as any;
+  }
+
   try {
     const isIdempotent = isIdempotentCall(name, args as Record<string, unknown>);
+    const savedGroupName = connection.tabGroup.getGroupName();
     const result = (await executeResilient(
       () => handler(args as Record<string, unknown>, connection),
       isIdempotent,
-      () => openFallbackGroup(connection)
+      async () => {
+        const opened = await openFallbackGroup(connection);
+        if (savedGroupName) await connection.tabGroup.renameGroup(savedGroupName);
+        Array.from(connection.tabGroup.getOwnedTabIds()).forEach(id => scheduleBlankTabClose(id));
+        return opened;
+      }
     )) as any;
 
     const createdTabId = extractNewTabId(result);
+    if (createdTabId && agentId) agentBindings.set(agentId, createdTabId);
     if (createdTabId && (isTabsNew || name === "browser_navigate")) {
       const createdGroupName = connection.tabGroup.getGroupName();
       const hasUrl = !!(args.url as string | undefined);
       faviconManager.startActivityAfterLoad(createdTabId, connection);
       scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
+      if (!hasUrl) scheduleBlankTabClose(createdTabId);
       bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url as string | undefined, groupName: createdGroupName, description: generateDescription(name, args, args.url as string | undefined), tabVerb: generateTabVerb(name, args, args.url as string | undefined) });
       const groupColor = connection.tabGroup.getGroupColor();
       const claudeColor = chromeToClaude(groupColor) ?? "default";
@@ -249,6 +290,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       cancelStop(tabId);
       await faviconManager.stopActivity(tabId, connection);
       bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName, description: "fechando tab" });
+      if (agentId) agentBindings.delete(agentId);
       if (!connection.tabGroup.hasOwnedTabs()) lastWrittenAutoSyncGroup = null;
     } else if (tabId) {
       scheduleStop(tabId, groupName);

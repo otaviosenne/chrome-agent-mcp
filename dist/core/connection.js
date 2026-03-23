@@ -35,8 +35,7 @@ export class ChromeConnection {
                 this.activeTabId = ownedIds[0];
                 return this.getClientForTab(this.activeTabId);
             }
-            const newTab = await this.newTab();
-            return this.getClientForTab(newTab.id);
+            throw new Error("No active tab — use browser_navigate with a URL to start browsing.");
         }
         if (tabId)
             this.activeTabId = tabId;

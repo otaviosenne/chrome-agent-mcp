@@ -24,6 +24,7 @@ const faviconManager = new TabFaviconManager();
 const bridge = new ExtensionBridge(DEBUG_PORT);
 let lastSyncedSessionPath = null;
 let lastWrittenAutoSyncGroup = null;
+const agentBindings = new Map();
 async function autoSyncOnce() {
     const currentPath = getCurrentSessionPath();
     if (!currentPath || currentPath === lastSyncedSessionPath)
@@ -97,6 +98,14 @@ const IDEMPOTENT_TOOLS = new Set([
     "chrome_extensions",
     "session_sync",
 ]);
+const TOOLS_INDEPENDENT_OF_TAB = new Set([
+    "browser_tabs",
+    "browser_navigate",
+    "chrome_windows",
+    "chrome_focus",
+    "chrome_extensions",
+    "session_sync",
+]);
 function isIdempotentCall(name, args) {
     if (IDEMPOTENT_TOOLS.has(name))
         return true;
@@ -120,6 +129,18 @@ function scheduleStop(tabId, groupName, delayMs = STOP_DELAY_MS) {
     }, delayMs);
     stopTimers.set(tabId, timer);
 }
+function scheduleBlankTabClose(tabId) {
+    setTimeout(async () => {
+        try {
+            const targets = await connection.listTabs();
+            const tab = targets.find((t) => t.id === tabId);
+            if (tab && (tab.url === "about:blank" || tab.url === "")) {
+                await connection.closeTab(tabId);
+            }
+        }
+        catch { }
+    }, BLANK_TAB_STOP_DELAY_MS + 500);
+}
 function cancelStop(tabId) {
     const existing = stopTimers.get(tabId);
     if (existing) {
@@ -138,7 +159,11 @@ function extractScreenshot(result) {
 const SKIP_BRIDGE_ACTIONS = new Set(["list", "switch"]);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     await autoSyncOnce();
-    const { name, arguments: args = {} } = request.params;
+    const { name, arguments: rawArgs = {} } = request.params;
+    const agentId = rawArgs.agentId;
+    const args = agentId && !rawArgs.tabId
+        ? { ...rawArgs, tabId: agentBindings.get(agentId) }
+        : { ...rawArgs };
     const handler = toolHandlers[name];
     if (!handler) {
         return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
@@ -179,15 +204,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             tabVerb: generateTabVerb(name, args, tabUrl),
         });
     }
+    if (!TOOLS_INDEPENDENT_OF_TAB.has(name) && !connection.tabGroup.hasOwnedTabs()) {
+        return {
+            content: [{ type: "text", text: "No active tab — use browser_navigate with a URL to start browsing." }],
+            isError: true,
+        };
+    }
     try {
         const isIdempotent = isIdempotentCall(name, args);
-        const result = (await executeResilient(() => handler(args, connection), isIdempotent, () => openFallbackGroup(connection)));
+        const savedGroupName = connection.tabGroup.getGroupName();
+        const result = (await executeResilient(() => handler(args, connection), isIdempotent, async () => {
+            const opened = await openFallbackGroup(connection);
+            if (savedGroupName)
+                await connection.tabGroup.renameGroup(savedGroupName);
+            Array.from(connection.tabGroup.getOwnedTabIds()).forEach(id => scheduleBlankTabClose(id));
+            return opened;
+        }));
         const createdTabId = extractNewTabId(result);
+        if (createdTabId && agentId)
+            agentBindings.set(agentId, createdTabId);
         if (createdTabId && (isTabsNew || name === "browser_navigate")) {
             const createdGroupName = connection.tabGroup.getGroupName();
             const hasUrl = !!args.url;
             faviconManager.startActivityAfterLoad(createdTabId, connection);
             scheduleStop(createdTabId, createdGroupName, hasUrl ? STOP_DELAY_MS : BLANK_TAB_STOP_DELAY_MS);
+            if (!hasUrl)
+                scheduleBlankTabClose(createdTabId);
             bridge.log({ type: "tab_open", tool: isTabsNew ? "browser_tabs:new" : "browser_navigate", tabId: createdTabId, tabUrl: args.url, groupName: createdGroupName, description: generateDescription(name, args, args.url), tabVerb: generateTabVerb(name, args, args.url) });
             const groupColor = connection.tabGroup.getGroupColor();
             const claudeColor = chromeToClaude(groupColor) ?? "default";
@@ -205,6 +247,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             cancelStop(tabId);
             await faviconManager.stopActivity(tabId, connection);
             bridge.log({ type: "tab_close", tool: "browser_tabs:close", tabId, groupName, description: "fechando tab" });
+            if (agentId)
+                agentBindings.delete(agentId);
             if (!connection.tabGroup.hasOwnedTabs())
                 lastWrittenAutoSyncGroup = null;
         }

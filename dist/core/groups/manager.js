@@ -66,6 +66,7 @@ export class TabGroupManager {
         const liveTabs = await this.fetchLivePageIds();
         const survivingIds = saved.ownedTabIds.filter(id => liveTabs.has(id));
         if (survivingIds.length === 0) {
+            this.store.deleteState();
             if (isAnimalName(saved.groupName)) {
                 this.groupName = saved.groupName;
                 this.groupColor = saved.groupColor;
@@ -192,6 +193,11 @@ export class TabGroupManager {
     }
     async renameGroup(newTitle) {
         await this.initialize();
+        this.groupName = newTitle;
+        this.persistState();
+        if (!this.extensionClient) {
+            this.extensionClient = await this.api.findExtensionClient();
+        }
         if (!this.extensionClient || this.chromeGroupId === null)
             return false;
         try {
@@ -200,8 +206,6 @@ export class TabGroupManager {
                 returnByValue: true,
                 awaitPromise: true,
             });
-            this.groupName = newTitle;
-            this.persistState();
             return true;
         }
         catch {
@@ -214,6 +218,11 @@ export class TabGroupManager {
         const validColors = GROUP_COLORS;
         if (!validColors.includes(color))
             return false;
+        this.groupColor = color;
+        this.persistState();
+        if (!this.extensionClient) {
+            this.extensionClient = await this.api.findExtensionClient();
+        }
         if (!this.extensionClient || this.chromeGroupId === null)
             return false;
         try {
@@ -222,8 +231,6 @@ export class TabGroupManager {
                 returnByValue: true,
                 awaitPromise: true,
             });
-            this.groupColor = color;
-            this.persistState();
             return true;
         }
         catch {
