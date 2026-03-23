@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChromeConnection } from "../../src/core/connection.js";
 import { handleClick, handleType, handleHover, handlePressKey } from "../../src/tools/interaction/input.js";
 import { handleScroll, handleSelectOption, handleFillForm } from "../../src/tools/interaction/form.js";
@@ -197,33 +197,44 @@ describe("handlePressKey", () => {
   });
 });
 
+function sumScrollDelta(calls: any[][], axis: "deltaX" | "deltaY"): number {
+  return calls.reduce((s, c) => s + (c[0][axis] ?? 0), 0);
+}
+
 describe("handleScroll", () => {
-  it("dispatches mouseWheel event for down direction", async () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("dispatches 20 mouseWheel events for down direction summing to 300", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const result = await handleScroll({ direction: "down" }, connection);
+    const promise = handleScroll({ direction: "down" }, connection);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "mouseWheel", deltaY: 300 })
-    );
+    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledTimes(20);
+    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call: any[]) => {
+      expect(call[0].type).toBe("mouseWheel");
+    });
+    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(300, 0);
     expect(result.content[0].text).toContain("down");
     expect(result.content[0].text).toContain("300");
   });
 
-  it("dispatches mouseWheel event for up direction with custom amount", async () => {
+  it("scrolls up with negative deltaY summing to -500", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    await handleScroll({ direction: "up", amount: 500 }, connection);
+    const promise = handleScroll({ direction: "up", amount: 500 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "mouseWheel", deltaY: -500 })
-    );
+    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(-500, 0);
   });
 
   it("coerces string amount to number", async () => {
@@ -232,11 +243,11 @@ describe("handleScroll", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    await handleScroll({ direction: "down", amount: "500" as unknown as number }, connection);
+    const promise = handleScroll({ direction: "down", amount: "500" as unknown as number }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "mouseWheel", deltaY: 500 })
-    );
+    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(500, 0);
   });
 
   it("falls back to 300 when amount is NaN", async () => {
@@ -245,25 +256,27 @@ describe("handleScroll", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    await handleScroll({ direction: "down", amount: "notanumber" as unknown as number }, connection);
+    const promise = handleScroll({ direction: "down", amount: "notanumber" as unknown as number }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaY: 300 })
-    );
+    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(300, 0);
   });
 
-  it("uses element center when ref is provided", async () => {
+  it("uses element center for all dispatched events when ref is provided", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    await handleScroll({ direction: "down", ref: 20 }, connection);
+    const promise = handleScroll({ direction: "down", ref: 20 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(mockClient.DOM.resolveNode).toHaveBeenCalled();
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ x: 100, y: 200 })
-    );
+    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call: any[]) => {
+      expect(call[0]).toMatchObject({ x: 100, y: 200 });
+    });
   });
 });
 

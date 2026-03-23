@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChromeConnection } from "../../../src/core/connection.js";
-import { handleFillForm } from "../../../src/tools/interaction/form.js";
+import { handleFillForm, handleScroll } from "../../../src/tools/interaction/form.js";
 
 function createMockConnection(mockClient: any): ChromeConnection {
   return {
@@ -100,5 +100,91 @@ describe("handleFillForm — atomic resolution", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Failed to resolve form fields");
+  });
+});
+
+describe("handleScroll — smooth animation", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  function buildScrollClient() {
+    return {
+      Input: { dispatchMouseEvent: vi.fn().mockResolvedValue({}) },
+      Runtime: {
+        evaluate: vi.fn().mockResolvedValue({
+          result: { value: JSON.stringify({ x: 640, y: 360 }) },
+        }),
+      },
+    };
+  }
+
+  it("dispatches exactly 20 mouseWheel events per scroll", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    const promise = handleScroll({ direction: "down", amount: 300 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledTimes(20);
+    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call) => {
+      expect(call[0].type).toBe("mouseWheel");
+    });
+  });
+
+  it("incremental deltas sum to the requested scroll amount", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    const promise = handleScroll({ direction: "down", amount: 500 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    const total = mockClient.Input.dispatchMouseEvent.mock.calls.reduce(
+      (sum: number, call: any[]) => sum + call[0].deltaY,
+      0
+    );
+    expect(total).toBeCloseTo(500, 0);
+  });
+
+  it("applies ease-in-out: first step smaller than middle step", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    const promise = handleScroll({ direction: "down", amount: 600 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    const calls = mockClient.Input.dispatchMouseEvent.mock.calls;
+    const firstStep = calls[0][0].deltaY;
+    const midStep = calls[9][0].deltaY;
+    expect(firstStep).toBeLessThan(midStep);
+    expect(calls[calls.length - 1][0].deltaY).toBeLessThan(midStep);
+  });
+
+  it("scrolls left and right via deltaX", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    const promise = handleScroll({ direction: "right", amount: 200 }, connection);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    const total = mockClient.Input.dispatchMouseEvent.mock.calls.reduce(
+      (sum: number, call: any[]) => sum + call[0].deltaX,
+      0
+    );
+    expect(total).toBeCloseTo(200, 0);
+  });
+
+  it("returns success text", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    const promise = handleScroll({ direction: "up", amount: 300 }, connection);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.content[0].text).toBe("Scrolled up by 300px");
   });
 });

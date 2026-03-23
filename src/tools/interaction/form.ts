@@ -6,10 +6,19 @@ import { resolveElement, getElementCenter, buildFieldResults } from "./dom-utils
 const FALLBACK_VIEWPORT_X = 640;
 const FALLBACK_VIEWPORT_Y = 360;
 
+const SCROLL_STEPS = 20;
+const SCROLL_MS_PER_PX = 0.35;
+const SCROLL_MIN_MS = 80;
+const SCROLL_MAX_MS = 500;
+
 const TAB_ID_PROP = {
   tabId: {
     type: "string",
     description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
+  },
+  agentId: {
+    type: "string",
+    description: "Agent identifier for parallel execution. Pass a unique ID (e.g. 'C1', 'J2') — the server automatically routes calls to this agent's dedicated tab (registered via browser_tabs action=new).",
   },
 };
 
@@ -67,6 +76,31 @@ export const fillFormToolDefinition: Tool = {
   },
 };
 
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
+async function dispatchSmoothedScroll(
+  client: any,
+  x: number,
+  y: number,
+  deltaX: number,
+  deltaY: number
+): Promise<void> {
+  const total = Math.abs(deltaX) || Math.abs(deltaY);
+  const duration = Math.max(SCROLL_MIN_MS, Math.min(SCROLL_MAX_MS, total * SCROLL_MS_PER_PX));
+  const stepDelay = duration / SCROLL_STEPS;
+  let prevEased = 0;
+
+  for (let i = 1; i <= SCROLL_STEPS; i++) {
+    const eased = easeInOut(i / SCROLL_STEPS);
+    const step = eased - prevEased;
+    prevEased = eased;
+    await client.Input.dispatchMouseEvent({ type: "mouseWheel", x, y, deltaX: deltaX * step, deltaY: deltaY * step });
+    if (i < SCROLL_STEPS) await new Promise<void>((r) => setTimeout(r, stepDelay));
+  }
+}
+
 async function resolveViewportCenter(client: any): Promise<{ x: number; y: number }> {
   try {
     const { result } = await client.Runtime.evaluate({
@@ -93,7 +127,7 @@ export async function handleScroll(
     ? await getElementCenter(client, args.ref as number)
     : await resolveViewportCenter(client);
 
-  await client.Input.dispatchMouseEvent({ type: "mouseWheel", x, y, deltaX, deltaY });
+  await dispatchSmoothedScroll(client, x, y, deltaX, deltaY);
 
   return { content: [{ type: "text", text: `Scrolled ${direction} by ${amount}px` }] };
 }
