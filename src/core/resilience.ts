@@ -86,6 +86,5 @@ export async function executeResilient(
 export async function openFallbackGroup(connection: ChromeConnection): Promise<boolean> {
   connection.tabGroup.resetForNewSession();
   await connection.tabGroup.initialize();
-  await connection.newTab("about:blank");
   return true;
 }

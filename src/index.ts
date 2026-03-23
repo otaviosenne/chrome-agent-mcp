@@ -259,7 +259,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       async () => {
         const opened = await openFallbackGroup(connection);
         if (savedGroupName) await connection.tabGroup.renameGroup(savedGroupName);
-        Array.from(connection.tabGroup.getOwnedTabIds()).forEach(id => scheduleBlankTabClose(id));
         return opened;
       }
     )) as any;

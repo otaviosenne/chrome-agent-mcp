@@ -66,6 +66,5 @@ export async function executeResilient(fn, isIdempotent, onFallback) {
 export async function openFallbackGroup(connection) {
     connection.tabGroup.resetForNewSession();
     await connection.tabGroup.initialize();
-    await connection.newTab("about:blank");
     return true;
 }
