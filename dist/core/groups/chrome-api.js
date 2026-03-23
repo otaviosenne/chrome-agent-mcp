@@ -84,19 +84,19 @@ export class GroupChromeApi {
                 return null;
             const expression = `(async () => {
             ${groupId !== null ? `try {
-              return await chrome.tabs.group({ groupId: ${groupId}, tabIds: [${match.id}] });
+              const gid = await chrome.tabs.group({ groupId: ${groupId}, tabIds: [${match.id}] });
+              await chrome.tabGroups.update(gid, { title: ${JSON.stringify(groupName)}, color: ${JSON.stringify(groupColor)} });
+              return gid;
             } catch {}` : ""}
             const existing = await chrome.tabGroups.query({ title: ${JSON.stringify(groupName)} });
             const existingId = existing[0]?.id ?? null;
             const gid = await chrome.tabs.group(
               existingId ? { groupId: existingId, tabIds: [${match.id}] } : { tabIds: [${match.id}] }
             );
-            if (!existingId) {
-              await chrome.tabGroups.update(gid, {
-                title: ${JSON.stringify(groupName)},
-                color: ${JSON.stringify(groupColor)}
-              });
-            }
+            await chrome.tabGroups.update(gid, {
+              title: ${JSON.stringify(groupName)},
+              color: ${JSON.stringify(groupColor)}
+            });
             return gid;
           })()`;
             const { result } = await extensionClient.Runtime.evaluate({
