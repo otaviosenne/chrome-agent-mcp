@@ -1,6 +1,18 @@
 export async function resolveElement(client, ref) {
     return client.DOM.resolveNode({ backendNodeId: ref });
 }
+export async function checkElementVisible(client, nodeId) {
+    let model;
+    try {
+        model = await client.DOM.getBoxModel({ backendNodeId: nodeId });
+    }
+    catch {
+        throw new Error("Element not visible or not in viewport");
+    }
+    if (!model?.model?.content || model.model.content.length === 0) {
+        throw new Error("Element not visible or not in viewport");
+    }
+}
 export async function getElementCenter(client, ref) {
     const { object } = await resolveElement(client, ref);
     const { result } = await client.Runtime.callFunctionOn({

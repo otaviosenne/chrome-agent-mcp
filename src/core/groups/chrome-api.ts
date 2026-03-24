@@ -79,14 +79,14 @@ export class GroupChromeApi {
           (async () => {
             const tabs = await chrome.tabs.query({});
             const sorted = tabs.sort((a, b) => b.id - a.id);
-            return JSON.stringify(sorted.map(t => ({ id: t.id, url: t.url, pendingUrl: t.pendingUrl })));
+            return JSON.stringify(sorted.map(t => ({ id: t.id, url: t.url, pendingUrl: t.pendingUrl, groupId: t.groupId })));
           })()
         `,
         returnByValue: true,
         awaitPromise: true,
       });
 
-      const chromeTabs: Array<{ id: number; url: string; pendingUrl?: string }> =
+      const chromeTabs: Array<{ id: number; url: string; pendingUrl?: string; groupId: number }> =
         JSON.parse(tabsResult?.value ?? "[]");
 
       if (chromeTabs.length === 0) return null;
@@ -97,12 +97,23 @@ export class GroupChromeApi {
       const normalize = (u: string) => (u ?? "").replace(/\/$/, "");
       const targetUrl = target ? normalize(target.url) : "";
 
-      const match =
-        chromeTabs.find(
-          (t) =>
-            normalize(t.url) === targetUrl ||
-            normalize(t.pendingUrl ?? "") === targetUrl
-        ) ?? chromeTabs[0];
+      const UNGROUPED = -1;
+      const isAmbiguousUrl = targetUrl === "" || targetUrl === "about:blank";
+
+      const candidates = chromeTabs.filter(
+        (t) => t.groupId === UNGROUPED || t.groupId === groupId
+      );
+
+      const urlMatch = isAmbiguousUrl
+        ? undefined
+        : candidates.find(
+            (t) =>
+              normalize(t.url) === targetUrl ||
+              normalize(t.pendingUrl ?? "") === targetUrl
+          );
+
+      const ungroupedFallback = candidates.find((t) => t.groupId === UNGROUPED);
+      const match = urlMatch ?? ungroupedFallback;
 
       if (!match) return null;
 

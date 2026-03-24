@@ -1,8 +1,12 @@
-import { resolveElement, getElementCenter } from "./dom-utils.js";
+import { resolveElement, getElementCenter, checkElementVisible } from "./dom-utils.js";
 const TAB_ID_PROP = {
     tabId: {
         type: "string",
         description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
+    },
+    agentId: {
+        type: "string",
+        description: "Agent identifier for parallel execution. Pass a unique ID (e.g. 'C1', 'J2') — the server automatically routes calls to this agent's dedicated tab (registered via browser_tabs action=new).",
     },
 };
 async function mouseClick(client, x, y) {
@@ -73,17 +77,24 @@ export async function handleClick(args, connection) {
     const client = await connection.getClient(tabId);
     const resolvedTabId = tabId ?? connection.getActiveTabId() ?? "";
     const ref = args.ref;
+    await checkElementVisible(client, ref);
     const { x, y } = await getElementCenter(client, ref);
     await connection.smoothMouseMove(client, resolvedTabId, x, y);
     await mouseClick(client, x, y);
-    if (args.doubleClick)
+    connection.showCursorClickRipple(client, x, y).catch(() => { });
+    if (args.doubleClick) {
         await mouseClick(client, x, y);
+        connection.showCursorClickRipple(client, x, y).catch(() => { });
+    }
     return { content: [{ type: "text", text: `Clicked element [ref=${ref}] at (${Math.round(x)}, ${Math.round(y)})` }] };
 }
 export async function handleType(args, connection) {
     const client = await connection.getClient(args.tabId);
     const ref = args.ref;
     const text = args.text;
+    if (typeof text !== "string") {
+        return { content: [{ type: "text", text: "Error: text argument is required" }], isError: true };
+    }
     const { object } = await resolveElement(client, ref);
     await client.Runtime.callFunctionOn({
         objectId: object.objectId,
@@ -101,6 +112,7 @@ export async function handleHover(args, connection) {
     const client = await connection.getClient(tabId);
     const resolvedTabId = tabId ?? connection.getActiveTabId() ?? "";
     const ref = args.ref;
+    await checkElementVisible(client, ref);
     const { x, y } = await getElementCenter(client, ref);
     await connection.smoothMouseMove(client, resolvedTabId, x, y);
     return { content: [{ type: "text", text: `Hovered over element [ref=${ref}]` }] };

@@ -1,9 +1,16 @@
 const LOAD_TIMEOUT_MS = 15000;
+const AGENT_ID_PROP = {
+    agentId: {
+        type: "string",
+        description: "Agent identifier for parallel execution. Pass a unique ID (e.g. 'C1', 'J2') — the server automatically routes calls to this agent's dedicated tab (registered via browser_tabs action=new).",
+    },
+};
 const TAB_ID_PROP = {
     tabId: {
         type: "string",
         description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
     },
+    ...AGENT_ID_PROP,
 };
 async function waitForLoad(client) {
     return new Promise((resolve) => {

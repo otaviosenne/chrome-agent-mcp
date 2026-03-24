@@ -135,6 +135,7 @@ export class TabFaviconManager {
 
   async stopActivity(tabId: string, connection: ChromeConnection): Promise<void> {
     try {
+      connection.clearClientForTab(tabId);
       const client = await connection.getClientForTab(tabId);
       await client.Runtime.evaluate({ expression: STOP_SCRIPT });
     } catch {}

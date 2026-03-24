@@ -119,6 +119,7 @@ export async function handleSessionSync(args, connection) {
         const groupNum = tabGroup.getGroupNumber();
         const newName = raw ? `#${groupNum} ${raw}` : `#${groupNum}`;
         const chromeOk = await tabGroup.renameGroup(newName);
+        writeAutoSync(newName, tabGroup.getGroupColor());
         const parts = [];
         if (chromeOk)
             parts.push(`Chrome group renamed to "${newName}"`);
@@ -141,7 +142,7 @@ export async function handleSessionSync(args, connection) {
             };
         }
         const success = await tabGroup.setGroupColor(chromeColor);
-        writeFileSync(join(homedir(), ".claude", ".pending_color"), claudeColor, "utf8");
+        writeAutoSync(tabGroup.getGroupName(), chromeColor);
         const text = success
             ? `Chrome group color set to ${chromeColor}. Claude theme will sync to ${claudeColor}.`
             : `Could not update Chrome group color. Claude theme will sync to ${claudeColor}.`;

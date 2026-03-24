@@ -51,7 +51,9 @@ export class TabGroupManager {
     }
     restoreFromLastGroup() {
         const last = this.store.loadLastGroup(this.debugPort);
-        if (last && isAnimalName(last.groupName)) {
+        if (last &&
+            isAnimalName(last.groupName) &&
+            !GroupStateStore.isGroupInUse(this.debugPort, last.chromeGroupId, process.pid)) {
             this.groupName = last.groupName;
             this.groupColor = last.groupColor;
             this.chromeGroupId = last.chromeGroupId;

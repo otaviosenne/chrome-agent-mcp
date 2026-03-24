@@ -1,12 +1,8 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { ChromeConnection } from "../../core/connection.js";
 import { ToolResult } from "../../types.js";
-import { resolveElement, getElementCenter, buildFieldResults } from "./dom-utils.js";
+import { resolveElement, buildFieldResults } from "./dom-utils.js";
 
-const FALLBACK_VIEWPORT_X = 640;
-const FALLBACK_VIEWPORT_Y = 360;
-
-const SCROLL_STEPS = 20;
 const SCROLL_MS_PER_PX = 0.35;
 const SCROLL_MIN_MS = 80;
 const SCROLL_MAX_MS = 500;
@@ -76,41 +72,57 @@ export const fillFormToolDefinition: Tool = {
   },
 };
 
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-}
-
-async function dispatchSmoothedScroll(
+async function animateScroll(
   client: any,
-  x: number,
-  y: number,
   deltaX: number,
-  deltaY: number
+  deltaY: number,
+  elementRef?: number
 ): Promise<void> {
   const total = Math.abs(deltaX) || Math.abs(deltaY);
   const duration = Math.max(SCROLL_MIN_MS, Math.min(SCROLL_MAX_MS, total * SCROLL_MS_PER_PX));
-  const stepDelay = duration / SCROLL_STEPS;
-  let prevEased = 0;
 
-  for (let i = 1; i <= SCROLL_STEPS; i++) {
-    const eased = easeInOut(i / SCROLL_STEPS);
-    const step = eased - prevEased;
-    prevEased = eased;
-    await client.Input.dispatchMouseEvent({ type: "mouseWheel", x, y, deltaX: deltaX * step, deltaY: deltaY * step });
-    if (i < SCROLL_STEPS) await new Promise<void>((r) => setTimeout(r, stepDelay));
-  }
+  const expression = elementRef
+    ? buildElementScrollExpression(elementRef, deltaX, deltaY, duration)
+    : buildWindowScrollExpression(deltaX, deltaY, duration);
+
+  await client.Runtime.evaluate({ expression, awaitPromise: true });
 }
 
-async function resolveViewportCenter(client: any): Promise<{ x: number; y: number }> {
-  try {
-    const { result } = await client.Runtime.evaluate({
-      expression: "JSON.stringify({ x: window.innerWidth / 2, y: window.innerHeight / 2 })",
-      returnByValue: true,
-    });
-    return JSON.parse(result.value as string);
-  } catch {
-    return { x: FALLBACK_VIEWPORT_X, y: FALLBACK_VIEWPORT_Y };
-  }
+function buildWindowScrollExpression(deltaX: number, deltaY: number, duration: number): string {
+  return `
+    new Promise(resolve => {
+      const startX = window.scrollX;
+      const startY = window.scrollY;
+      const startTime = performance.now();
+      function step(now) {
+        const t = Math.min((now - startTime) / ${duration}, 1);
+        const e = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+        window.scrollTo(startX + ${deltaX} * e, startY + ${deltaY} * e);
+        if (t < 1) requestAnimationFrame(step); else resolve();
+      }
+      requestAnimationFrame(step);
+    })
+  `;
+}
+
+function buildElementScrollExpression(ref: number, deltaX: number, deltaY: number, duration: number): string {
+  return `
+    new Promise(resolve => {
+      const el = window.__claudeRefs && window.__claudeRefs[${ref}];
+      if (!el) { resolve(); return; }
+      const startX = el.scrollLeft;
+      const startY = el.scrollTop;
+      const startTime = performance.now();
+      function step(now) {
+        const t = Math.min((now - startTime) / ${duration}, 1);
+        const e = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+        el.scrollLeft = startX + ${deltaX} * e;
+        el.scrollTop = startY + ${deltaY} * e;
+        if (t < 1) requestAnimationFrame(step); else resolve();
+      }
+      requestAnimationFrame(step);
+    })
+  `;
 }
 
 export async function handleScroll(
@@ -123,11 +135,7 @@ export async function handleScroll(
   const deltaX = direction === "right" ? amount : direction === "left" ? -amount : 0;
   const deltaY = direction === "down" ? amount : direction === "up" ? -amount : 0;
 
-  const { x, y } = args.ref
-    ? await getElementCenter(client, args.ref as number)
-    : await resolveViewportCenter(client);
-
-  await dispatchSmoothedScroll(client, x, y, deltaX, deltaY);
+  await animateScroll(client, deltaX, deltaY, args.ref as number | undefined);
 
   return { content: [{ type: "text", text: `Scrolled ${direction} by ${amount}px` }] };
 }

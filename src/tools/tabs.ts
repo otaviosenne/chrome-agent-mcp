@@ -23,6 +23,10 @@ export const tabsToolDefinition: Tool = {
         description: "Tab index (0-based) as alternative to tabId for close/switch",
       },
       url: { type: "string", description: "URL to open in new tab" },
+      agentId: {
+        type: "string",
+        description: "Agent identifier for parallel execution. When action=new, binds this agent to the created tab — all subsequent calls with the same agentId automatically target that tab. Use a unique ID per agent (e.g. 'C1', 'J2').",
+      },
     },
     required: ["action"],
   },

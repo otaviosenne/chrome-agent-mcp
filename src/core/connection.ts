@@ -1,6 +1,11 @@
 import CDP from "chrome-remote-interface";
 import { TabInfo, NetworkRequest, ConsoleEntry } from "../types.js";
 import { TabGroupManager } from "./groups/manager.js";
+import {
+  buildCursorEnsureExpression,
+  buildCursorAnimateExpression,
+  buildCursorClickRippleExpression,
+} from "../utils/phantom-cursor.js";
 
 const MAX_LOG_ENTRIES = 500;
 
@@ -239,6 +244,9 @@ export class ChromeConnection {
 
   async smoothMouseMove(client: any, tabId: string, toX: number, toY: number, steps = 25): Promise<void> {
     const from = this.getMousePosition(tabId);
+    const durationMs = steps * 10;
+    const visualAnimation = this.runPhantomCursorAnimation(client, from.x, from.y, toX, toY, durationMs);
+
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -247,6 +255,31 @@ export class ChromeConnection {
       await client.Input.dispatchMouseEvent({ type: "mouseMoved", x, y });
       await new Promise((r) => setTimeout(r, 8));
     }
+
+    await visualAnimation;
     this.setMousePosition(tabId, toX, toY);
+  }
+
+  async showCursorClickRipple(client: any, x: number, y: number): Promise<void> {
+    try {
+      await client.Runtime.evaluate({ expression: buildCursorClickRippleExpression(x, y) });
+    } catch {}
+  }
+
+  private async runPhantomCursorAnimation(
+    client: any,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    durationMs: number
+  ): Promise<void> {
+    try {
+      await client.Runtime.evaluate({ expression: buildCursorEnsureExpression(fromX, fromY) });
+      await client.Runtime.evaluate({
+        expression: buildCursorAnimateExpression(fromX, fromY, toX, toY, durationMs),
+        awaitPromise: true,
+      });
+    } catch {}
   }
 }

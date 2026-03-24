@@ -114,6 +114,28 @@ export class GroupStateStore {
         catch { }
         return null;
     }
+    static isGroupInUse(debugPort, groupId, myPid) {
+        try {
+            const prefix = `${debugPort}-`;
+            const files = readdirSync(STATE_DIR).filter((f) => f.startsWith(prefix) && f.endsWith(".json") && !f.includes("last"));
+            for (const file of files) {
+                const match = file.match(/^\d+-(\d+)\.json$/);
+                if (!match)
+                    continue;
+                const pid = parseInt(match[1], 10);
+                if (pid === myPid || !isProcessAlive(pid))
+                    continue;
+                try {
+                    const state = JSON.parse(readFileSync(join(STATE_DIR, file), "utf8"));
+                    if (state.chromeGroupId === groupId)
+                        return true;
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return false;
+    }
     static cleanupDeadProcessFiles() {
         try {
             const files = readdirSync(STATE_DIR).filter(f => /^\d+-\d+\.json$/.test(f));

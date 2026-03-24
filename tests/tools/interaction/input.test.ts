@@ -47,6 +47,7 @@ function createMockConnection(
     getMousePosition: vi.fn().mockReturnValue({ x: 0, y: 0 }),
     setMousePosition: vi.fn(),
     smoothMouseMove: vi.fn().mockResolvedValue(undefined),
+    showCursorClickRipple: vi.fn().mockResolvedValue(undefined),
     tabGroup: {
       initialize: vi.fn().mockResolvedValue(undefined),
       getGroupName: vi.fn().mockReturnValue("TestGroup"),

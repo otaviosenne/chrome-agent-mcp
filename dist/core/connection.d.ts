@@ -32,5 +32,7 @@ export declare class ChromeConnection {
     getMousePosition(tabId: string): MousePosition;
     setMousePosition(tabId: string, x: number, y: number): void;
     smoothMouseMove(client: any, tabId: string, toX: number, toY: number, steps?: number): Promise<void>;
+    showCursorClickRipple(client: any, x: number, y: number): Promise<void>;
+    private runPhantomCursorAnimation;
 }
 export {};

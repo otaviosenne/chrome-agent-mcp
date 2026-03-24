@@ -21,6 +21,10 @@ export const devtoolsElementsToolDefinition: Tool = {
         type: "string",
         description: "Target tab ID (from browser_tabs list). Uses active tab if omitted.",
       },
+      agentId: {
+        type: "string",
+        description: "Agent identifier for parallel execution. Pass a unique ID (e.g. 'C1', 'J2') — the server automatically routes calls to this agent's dedicated tab (registered via browser_tabs action=new).",
+      },
     },
     required: ["selector"],
   },

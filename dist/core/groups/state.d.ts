@@ -20,5 +20,6 @@ export declare class GroupStateStore {
     saveLastGroup(debugPort: number, groupName: string, groupColor: string, chromeGroupId: number): void;
     deleteLastGroup(debugPort: number): void;
     static findSharedState(debugPort: number, myPid: number): PersistedState | null;
+    static isGroupInUse(debugPort: number, groupId: number, myPid: number): boolean;
     static cleanupDeadProcessFiles(): void;
 }
