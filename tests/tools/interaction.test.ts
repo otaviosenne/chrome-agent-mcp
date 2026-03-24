@@ -198,44 +198,31 @@ describe("handlePressKey", () => {
   });
 });
 
-function sumScrollDelta(calls: any[][], axis: "deltaX" | "deltaY"): number {
-  return calls.reduce((s, c) => s + (c[0][axis] ?? 0), 0);
-}
-
 describe("handleScroll", () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
-
-  it("dispatches 20 mouseWheel events for down direction summing to 300", async () => {
+  it("calls Runtime.evaluate with awaitPromise and returns success text", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const promise = handleScroll({ direction: "down" }, connection);
-    await vi.runAllTimersAsync();
-    const result = await promise;
+    const result = await handleScroll({ direction: "down" }, connection);
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledTimes(20);
-    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call: any[]) => {
-      expect(call[0].type).toBe("mouseWheel");
-    });
-    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(300, 0);
+    const scrollCall = mockClient.Runtime.evaluate.mock.calls[0];
+    expect(scrollCall[0].awaitPromise).toBe(true);
     expect(result.content[0].text).toContain("down");
     expect(result.content[0].text).toContain("300");
   });
 
-  it("scrolls up with negative deltaY summing to -500", async () => {
+  it("encodes negative deltaY for up direction", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const promise = handleScroll({ direction: "up", amount: 500 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "up", amount: 500 }, connection);
 
-    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(-500, 0);
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("-500");
   });
 
   it("coerces string amount to number", async () => {
@@ -244,11 +231,10 @@ describe("handleScroll", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const promise = handleScroll({ direction: "down", amount: "500" as unknown as number }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "down", amount: "500" as unknown as number }, connection);
 
-    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(500, 0);
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("500");
   });
 
   it("falls back to 300 when amount is NaN", async () => {
@@ -257,27 +243,23 @@ describe("handleScroll", () => {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const promise = handleScroll({ direction: "down", amount: "notanumber" as unknown as number }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "down", amount: "notanumber" as unknown as number }, connection);
 
-    expect(sumScrollDelta(mockClient.Input.dispatchMouseEvent.mock.calls, "deltaY")).toBeCloseTo(300, 0);
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("300");
   });
 
-  it("uses element center for all dispatched events when ref is provided", async () => {
+  it("uses element scroll expression when ref is provided", async () => {
     const mockClient = createMockClient();
     const connection = createMockConnection({}, {
       getClient: vi.fn().mockResolvedValue(mockClient),
     });
 
-    const promise = handleScroll({ direction: "down", ref: 20 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "down", ref: 20 }, connection);
 
-    expect(mockClient.DOM.resolveNode).toHaveBeenCalled();
-    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call: any[]) => {
-      expect(call[0]).toMatchObject({ x: 100, y: 200 });
-    });
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("__claudeRefs");
+    expect(expression).toContain("20");
   });
 });
 

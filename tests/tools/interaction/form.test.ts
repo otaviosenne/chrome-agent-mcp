@@ -104,86 +104,72 @@ describe("handleFillForm — atomic resolution", () => {
 });
 
 describe("handleScroll — smooth animation", () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
-
   function buildScrollClient() {
     return {
       Input: { dispatchMouseEvent: vi.fn().mockResolvedValue({}) },
       Runtime: {
-        evaluate: vi.fn().mockResolvedValue({
-          result: { value: JSON.stringify({ x: 640, y: 360 }) },
-        }),
+        evaluate: vi.fn().mockResolvedValue({ result: { value: undefined } }),
       },
     };
   }
 
-  it("dispatches exactly 20 mouseWheel events per scroll", async () => {
+  it("calls Runtime.evaluate with awaitPromise", async () => {
     const mockClient = buildScrollClient();
     const connection = createMockConnection(mockClient);
 
-    const promise = handleScroll({ direction: "down", amount: 300 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "down", amount: 300 }, connection);
 
-    expect(mockClient.Input.dispatchMouseEvent).toHaveBeenCalledTimes(20);
-    mockClient.Input.dispatchMouseEvent.mock.calls.forEach((call) => {
-      expect(call[0].type).toBe("mouseWheel");
-    });
-  });
-
-  it("incremental deltas sum to the requested scroll amount", async () => {
-    const mockClient = buildScrollClient();
-    const connection = createMockConnection(mockClient);
-
-    const promise = handleScroll({ direction: "down", amount: 500 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
-
-    const total = mockClient.Input.dispatchMouseEvent.mock.calls.reduce(
-      (sum: number, call: any[]) => sum + call[0].deltaY,
-      0
+    expect(mockClient.Runtime.evaluate).toHaveBeenCalledWith(
+      expect.objectContaining({ awaitPromise: true })
     );
-    expect(total).toBeCloseTo(500, 0);
   });
 
-  it("applies ease-in-out: first step smaller than middle step", async () => {
+  it("encodes positive deltaY in expression for down direction", async () => {
     const mockClient = buildScrollClient();
     const connection = createMockConnection(mockClient);
 
-    const promise = handleScroll({ direction: "down", amount: 600 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "down", amount: 500 }, connection);
 
-    const calls = mockClient.Input.dispatchMouseEvent.mock.calls;
-    const firstStep = calls[0][0].deltaY;
-    const midStep = calls[9][0].deltaY;
-    expect(firstStep).toBeLessThan(midStep);
-    expect(calls[calls.length - 1][0].deltaY).toBeLessThan(midStep);
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("500");
+    expect(expression).not.toContain("-500");
   });
 
-  it("scrolls left and right via deltaX", async () => {
+  it("encodes negative deltaY for up direction", async () => {
     const mockClient = buildScrollClient();
     const connection = createMockConnection(mockClient);
 
-    const promise = handleScroll({ direction: "right", amount: 200 }, connection);
-    await vi.runAllTimersAsync();
-    await promise;
+    await handleScroll({ direction: "up", amount: 500 }, connection);
 
-    const total = mockClient.Input.dispatchMouseEvent.mock.calls.reduce(
-      (sum: number, call: any[]) => sum + call[0].deltaX,
-      0
-    );
-    expect(total).toBeCloseTo(200, 0);
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("-500");
+  });
+
+  it("encodes deltaX for horizontal scroll", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    await handleScroll({ direction: "right", amount: 200 }, connection);
+
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("200");
+  });
+
+  it("uses rAF-based animation in expression", async () => {
+    const mockClient = buildScrollClient();
+    const connection = createMockConnection(mockClient);
+
+    await handleScroll({ direction: "down", amount: 600 }, connection);
+
+    const { expression } = mockClient.Runtime.evaluate.mock.calls[0][0];
+    expect(expression).toContain("requestAnimationFrame");
   });
 
   it("returns success text", async () => {
     const mockClient = buildScrollClient();
     const connection = createMockConnection(mockClient);
 
-    const promise = handleScroll({ direction: "up", amount: 300 }, connection);
-    await vi.runAllTimersAsync();
-    const result = await promise;
+    const result = await handleScroll({ direction: "up", amount: 300 }, connection);
 
     expect(result.content[0].text).toBe("Scrolled up by 300px");
   });
