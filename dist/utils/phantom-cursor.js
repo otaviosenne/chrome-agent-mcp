@@ -35,14 +35,27 @@ export function buildCursorAnimateExpression(fromX, fromY, toX, toY, durationMs)
 export function buildCursorClickRippleExpression(x, y) {
     const tx = Math.round(x - RIPPLE_HALF_PX);
     const ty = Math.round(y - RIPPLE_HALF_PX);
+    const cursorTx = Math.round(x - CURSOR_HALF_PX);
+    const cursorTy = Math.round(y - CURSOR_HALF_PX);
     return `(function() {
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;top:0;left:0;width:${RIPPLE_SIZE_PX}px;height:${RIPPLE_SIZE_PX}px;border:2px solid rgba(99,102,241,0.8);border-radius:50%;pointer-events:none;z-index:2147483646;transform:translate(${tx}px,${ty}px) scale(0.3);opacity:1;transition:transform ${RIPPLE_DURATION_MS}ms ease-out,opacity ${RIPPLE_DURATION_MS}ms ease-out';
-    (document.body || document.documentElement).appendChild(el);
+    const ripple = document.createElement('div');
+    ripple.style.cssText = 'position:fixed;top:0;left:0;width:${RIPPLE_SIZE_PX}px;height:${RIPPLE_SIZE_PX}px;border:2px solid rgba(99,102,241,0.8);border-radius:50%;pointer-events:none;z-index:2147483646;transform:translate(${tx}px,${ty}px) scale(0.3);opacity:1;transition:transform ${RIPPLE_DURATION_MS}ms ease-out,opacity ${RIPPLE_DURATION_MS}ms ease-out';
+    (document.body || document.documentElement).appendChild(ripple);
+    const cursor = document.getElementById('${CURSOR_ID}');
+    if (cursor) {
+      cursor.style.transition = 'transform 80ms ease-out,background 80ms ease-out';
+      cursor.style.background = 'rgba(139,92,246,1)';
+      cursor.style.transform = 'translate(${cursorTx}px,${cursorTy}px) scale(0.6)';
+      setTimeout(() => {
+        cursor.style.transform = 'translate(${cursorTx}px,${cursorTy}px) scale(1)';
+        cursor.style.background = 'rgba(99,102,241,0.95)';
+        setTimeout(() => { cursor.style.transition = 'none'; }, 120);
+      }, 80);
+    }
     requestAnimationFrame(() => {
-      el.style.transform = 'translate(${tx}px,${ty}px) scale(${RIPPLE_SCALE})';
-      el.style.opacity = '0';
-      setTimeout(() => el.remove(), ${RIPPLE_DURATION_MS});
+      ripple.style.transform = 'translate(${tx}px,${ty}px) scale(${RIPPLE_SCALE})';
+      ripple.style.opacity = '0';
+      setTimeout(() => ripple.remove(), ${RIPPLE_DURATION_MS});
     });
   })()`;
 }
