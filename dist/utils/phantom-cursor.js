@@ -5,6 +5,14 @@ const RIPPLE_SIZE_PX = 24;
 const RIPPLE_HALF_PX = RIPPLE_SIZE_PX / 2;
 const RIPPLE_SCALE = 2.5;
 const RIPPLE_DURATION_MS = 400;
+const SCROLL_PULSE_DURATION_MS = 500;
+const SCROLL_PULSE_FLOAT_PX = 32;
+const SCROLL_DIRECTION_SYMBOLS = {
+    down: '↓',
+    up: '↑',
+    right: '→',
+    left: '←',
+};
 export function buildCursorEnsureExpression(x, y) {
     const tx = Math.round(x - CURSOR_HALF_PX);
     const ty = Math.round(y - CURSOR_HALF_PX);
@@ -31,6 +39,36 @@ export function buildCursorAnimateExpression(fromX, fromY, toX, toY, durationMs)
     }
     requestAnimationFrame(step);
   })`;
+}
+export function buildCursorScrollPulseExpression(direction) {
+    const symbol = SCROLL_DIRECTION_SYMBOLS[direction] ?? '↕';
+    const isVertical = direction === 'down' || direction === 'up';
+    const floatDy = direction === 'down' ? SCROLL_PULSE_FLOAT_PX : direction === 'up' ? -SCROLL_PULSE_FLOAT_PX : 0;
+    const floatDx = direction === 'right' ? SCROLL_PULSE_FLOAT_PX : direction === 'left' ? -SCROLL_PULSE_FLOAT_PX : 0;
+    return `(function() {
+    const cursor = document.getElementById('${CURSOR_ID}');
+    if (!cursor) return;
+    const match = cursor.style.transform.match(/translate\\(([\\d.-]+)px,([\\d.-]+)px\\)/);
+    if (!match) return;
+    const cx = parseFloat(match[1]) + ${CURSOR_HALF_PX};
+    const cy = parseFloat(match[2]) + ${CURSOR_HALF_PX};
+    for (let i = 0; i < 3; i++) {
+      const el = document.createElement('div');
+      const delay = i * 80;
+      el.style.cssText = 'position:fixed;top:0;left:0;font-size:14px;font-weight:700;color:rgba(99,102,241,0.9);pointer-events:none;z-index:2147483646;transform:translate(' + (cx - 7) + 'px,' + (cy - 7) + 'px);opacity:0;text-shadow:0 1px 4px rgba(0,0,0,0.5);transition:none';
+      el.textContent = '${symbol}';
+      (document.body || document.documentElement).appendChild(el);
+      setTimeout(() => {
+        el.style.transition = 'transform ${SCROLL_PULSE_DURATION_MS}ms ease-out,opacity ${SCROLL_PULSE_DURATION_MS}ms ease-out';
+        el.style.transform = 'translate(' + (cx - 7 + ${floatDx}) + 'px,' + (cy - 7 + ${floatDy}) + 'px)';
+        el.style.opacity = '1';
+        setTimeout(() => {
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), ${SCROLL_PULSE_DURATION_MS});
+        }, ${SCROLL_PULSE_DURATION_MS} / 2);
+      }, delay);
+    }
+  })()`;
 }
 export function buildCursorClickRippleExpression(x, y) {
     const tx = Math.round(x - RIPPLE_HALF_PX);

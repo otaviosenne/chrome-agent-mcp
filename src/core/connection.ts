@@ -5,6 +5,7 @@ import {
   buildCursorEnsureExpression,
   buildCursorAnimateExpression,
   buildCursorClickRippleExpression,
+  buildCursorScrollPulseExpression,
 } from "../utils/phantom-cursor.js";
 
 const MAX_LOG_ENTRIES = 500;
@@ -263,6 +264,12 @@ export class ChromeConnection {
   async showCursorClickRipple(client: any, x: number, y: number): Promise<void> {
     try {
       await client.Runtime.evaluate({ expression: buildCursorClickRippleExpression(x, y) });
+    } catch {}
+  }
+
+  async showCursorScrollPulse(client: any, direction: string): Promise<void> {
+    try {
+      await client.Runtime.evaluate({ expression: buildCursorScrollPulseExpression(direction) });
     } catch {}
   }
 

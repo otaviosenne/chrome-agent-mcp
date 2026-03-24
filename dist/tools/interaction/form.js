@@ -112,6 +112,7 @@ export async function handleScroll(args, connection) {
     const amount = Number(args.amount) || 300;
     const deltaX = direction === "right" ? amount : direction === "left" ? -amount : 0;
     const deltaY = direction === "down" ? amount : direction === "up" ? -amount : 0;
+    connection.showCursorScrollPulse(client, direction).catch(() => { });
     await animateScroll(client, deltaX, deltaY, args.ref);
     return { content: [{ type: "text", text: `Scrolled ${direction} by ${amount}px` }] };
 }

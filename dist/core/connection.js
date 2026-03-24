@@ -1,6 +1,6 @@
 import CDP from "chrome-remote-interface";
 import { TabGroupManager } from "./groups/manager.js";
-import { buildCursorEnsureExpression, buildCursorAnimateExpression, buildCursorClickRippleExpression, } from "../utils/phantom-cursor.js";
+import { buildCursorEnsureExpression, buildCursorAnimateExpression, buildCursorClickRippleExpression, buildCursorScrollPulseExpression, } from "../utils/phantom-cursor.js";
 const MAX_LOG_ENTRIES = 500;
 export class ChromeConnection {
     debugPort;
@@ -230,6 +230,12 @@ export class ChromeConnection {
     async showCursorClickRipple(client, x, y) {
         try {
             await client.Runtime.evaluate({ expression: buildCursorClickRippleExpression(x, y) });
+        }
+        catch { }
+    }
+    async showCursorScrollPulse(client, direction) {
+        try {
+            await client.Runtime.evaluate({ expression: buildCursorScrollPulseExpression(direction) });
         }
         catch { }
     }

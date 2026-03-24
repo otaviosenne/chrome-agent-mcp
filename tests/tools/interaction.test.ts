@@ -49,6 +49,7 @@ function createMockConnection(clientOverrides: Partial<any> = {}, connOverrides:
     setMousePosition: vi.fn(),
     smoothMouseMove: vi.fn().mockResolvedValue(undefined),
     showCursorClickRipple: vi.fn().mockResolvedValue(undefined),
+    showCursorScrollPulse: vi.fn().mockResolvedValue(undefined),
     tabGroup: {
       initialize: vi.fn().mockResolvedValue(undefined),
       getGroupName: vi.fn().mockReturnValue("TestGroup"),
